@@ -36,7 +36,7 @@ function list(value, name, valid = safeName) {
 
 export function validateConfig(metadata) {
   if (!record(metadata) || !identifier(metadata.id) || /^(core|computed|script)\./.test(metadata.id)) throw new Error('extension.json id must be a nonreserved dotted namespace, e.g. yourname.sticky-notes.');
-  if (!identifier(`${metadata.id}.note`)) throw new Error('The generated note aspect ID must be at most 160 characters.');
+  if (!identifier(`${metadata.id}.mechanics`)) throw new Error('Generated aspect IDs must be at most 160 characters.');
   for (const [key, limit] of [['title', 120], ['summary', 600]]) if (typeof metadata[key] !== 'string' || !metadata[key].trim() || metadata[key].length > limit) throw new Error(`extension.json requires ${key} (at most ${limit} characters).`);
   release(metadata.version);validateRange(metadata.engine);
   for (const key of ['dependencies', 'optionalDependencies']) {

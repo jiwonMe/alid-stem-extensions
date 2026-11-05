@@ -38,7 +38,7 @@ async function events(url, origin) {
 
 test('dev server rebuilds on change, serves a matching manifest and bundle, and announces reloads', { timeout: 60_000 }, async () => {
   const origin = 'http://127.0.0.1:5173';
-  const source = new URL('../src/index.js', import.meta.url), original = await readFile(source, 'utf8');
+  const source = new URL('../src/index.ts', import.meta.url), original = await readFile(source, 'utf8');
   const server = await startDevServer({ port: 0, log: () => {} });
   const stream = await events(`${server.url}/__alid/events`, origin);
   try {
@@ -48,11 +48,11 @@ test('dev server rebuilds on change, serves a matching manifest and bundle, and 
     assert.equal(manifest.sha256, createHash('sha256').update(bundle).digest('hex'));
     assert.equal(first.sha256, manifest.sha256);
 
-    await writeFile(source, original.replace("'작은 생각'", "'바뀐 생각'"));
+    await writeFile(source, original.replace('"STEM 작도 확장이 비활성화되었습니다.', '"STEM 작도 확장이 꺼졌습니다.'));
     const second = await stream.next('reload');
     assert.ok(second.revision > first.revision);
     assert.notEqual(second.sha256, first.sha256);
-    assert.match(await (await fetch(`${server.url}/dist/plugin.js`)).text(), /바뀐 생각/);
+    assert.match(await (await fetch(`${server.url}/dist/plugin.js`)).text(), /STEM 작도 확장이 꺼졌습니다/);
 
     const denied = await fetch(`${server.url}/alid.extension.json`, { headers: { Origin: 'https://evil.example' } });
     assert.equal(denied.status, 403);

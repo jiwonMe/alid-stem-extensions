@@ -1,0 +1,142 @@
+{
+  "schema": "stemfig/v1",
+  "latex": "mathjax",
+  "plugins": ["physics.mechanics@1"],
+  "nodes": [
+    {
+      "id": "projectile_sheet",
+      "type": "frame",
+      "name": "포물선",
+      "frame": { "x": 0, "y": 0, "w": 340, "h": 150 },
+      "children": [
+        {
+          "id": "proj_slope", "type": "figure", "kind": "physics.mechanics", "name": "경사면 충돌",
+          "frame": { "x": 6, "y": 8, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "ground", "type": "track", "points": [[0, 0], [9, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 3 }, "label": "수평면" },
+            { "id": "slope", "type": "track", "points": [[1, 4.33], [3.5, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 2.5 } },
+            { "id": "ball", "type": "ball", "radius": 0.28, "fill": "shade", "pose": { "mode": "free", "point": [0.7, 5.2] } },
+            { "id": "R", "type": "point", "label": "R", "at": { "mode": "free", "point": [2.8, 1.4] } },
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.4], "angle": -20,
+              "a": { "mode": "anchor", "object": "ball", "anchor": "center" },
+              "b": { "mode": "anchor", "object": "R", "anchor": "center" },
+              "launch": { "length": 6, "label": "$v_0$" },
+              "launchAngle": { "auto": true, "reference": true } },
+            { "id": "right", "type": "angle", "mark": "right", "auto": false,
+              "v": { "mode": "anchor", "object": "R", "anchor": "center" },
+              "a": { "mode": "tangent", "trajectory": "path", "end": "end" },
+              "b": { "mode": "vertex", "track": "slope", "index": 0 } }
+          ] }
+        },
+        {
+          "id": "proj_land", "type": "figure", "kind": "physics.mechanics", "name": "빗면 착지",
+          "frame": { "x": 90, "y": 8, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "slope", "type": "track", "points": [[0, 3.2], [8, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 3 }, "label": "지면" },
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.35], "angle": 15,
+              "a": { "mode": "free", "point": [0.6, 4.2] }, "b": { "mode": "free", "point": [5.2, 1.1] },
+              "launch": { "length": 6, "label": "$v_0$" }, "launchAngle": { "auto": true, "reference": true },
+              "apex": { "drop": true, "label": "최고점" } },
+            { "id": "h", "type": "dimension", "axis": "vertical", "offset": -1.2, "label": "$h$",
+              "a": { "mode": "free", "point": [0.6, 4.2] }, "b": { "mode": "free", "point": [0.6, 3.2] } },
+            { "id": "l", "type": "dimension", "axis": "horizontal", "offset": -0.8, "label": "$l$",
+              "a": { "mode": "free", "point": [0.6, 1.1] }, "b": { "mode": "free", "point": [5.2, 1.1] } }
+          ] }
+        },
+        {
+          "id": "proj_cliff", "type": "figure", "kind": "physics.mechanics", "name": "절벽",
+          "frame": { "x": 174, "y": 8, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "cliff", "type": "track", "points": [[0, 4], [3, 4], [3, 0], [9, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 3 }, "label": "절벽" },
+            { "id": "R", "type": "point", "label": "R", "at": { "mode": "free", "point": [7, 0.4] } },
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.45], "angle": 45,
+              "a": { "mode": "vertex", "track": "cliff", "index": 1 }, "b": { "mode": "anchor", "object": "R", "anchor": "center" },
+              "launch": { "length": 6, "label": "$v_0$" }, "launchAngle": { "auto": true, "reference": true } },
+            { "id": "h", "type": "dimension", "axis": "vertical", "offset": 0.8, "label": "$h$",
+              "a": { "mode": "vertex", "track": "cliff", "index": 1 }, "b": { "mode": "vertex", "track": "cliff", "index": 2 } }
+          ] }
+        },
+        {
+          "id": "proj_pair", "type": "figure", "kind": "physics.mechanics", "name": "동시 착지",
+          "frame": { "x": 258, "y": 8, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "ground", "type": "track", "points": [[0, 0], [9, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 3 } },
+            { "id": "A", "type": "ball", "radius": 0.28, "fill": "paper", "label": "A", "pose": { "mode": "free", "point": [1, 4] } },
+            { "id": "B", "type": "ball", "radius": 0.28, "fill": "shade", "label": "B", "pose": { "mode": "free", "point": [1, 2] } },
+            { "id": "slow", "type": "trajectory", "dashed": true, "arrows": [0.5], "angle": 20,
+              "a": { "mode": "anchor", "object": "A", "anchor": "center" }, "b": { "mode": "free", "point": [6, 0.4] },
+              "launch": { "length": 5, "label": "$v$" } },
+            { "id": "fast", "type": "trajectory", "dashed": true, "dash": "dot", "arrows": [0.5], "angle": 35,
+              "a": { "mode": "anchor", "object": "B", "anchor": "center" }, "b": { "mode": "free", "point": [7.2, 0.4] },
+              "launch": { "length": 6, "label": "$2v$" } }
+          ] }
+        },
+        {
+          "id": "proj_building", "type": "figure", "kind": "physics.mechanics", "name": "건물",
+          "frame": { "x": 6, "y": 80, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "ground", "type": "track", "points": [[0, 0], [9, 0]], "rounding": 0, "ground": { "style": "shade", "side": "below", "depth": 2.5 }, "label": "지면" },
+            { "id": "house", "type": "block", "width": 2.2, "height": 3.2, "fill": "shade", "pose": { "mode": "free", "point": [3, 0], "angle": 0 } },
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.4], "angle": 40,
+              "a": { "mode": "anchor", "object": "house", "anchor": "top" }, "b": { "mode": "free", "point": [7.5, 0.3] },
+              "launch": { "length": 6, "label": "$v_0$" }, "apex": { "drop": true, "label": "최고점" } },
+            { "id": "H", "type": "dimension", "axis": "vertical", "offset": -1.4, "label": "$H$",
+              "a": { "mode": "anchor", "object": "house", "anchor": "top" }, "b": { "mode": "anchor", "object": "house", "anchor": "bottom" } }
+          ] }
+        },
+        {
+          "id": "proj_floors", "type": "figure", "kind": "physics.mechanics", "name": "층별 투사",
+          "frame": { "x": 90, "y": 80, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "wall", "type": "block", "width": 1.4, "height": 6, "fill": "shade", "pose": { "mode": "free", "point": [1.2, 0], "angle": 0 } },
+            { "id": "low", "type": "trajectory", "dashed": true, "arrows": [0.5], "angle": 15,
+              "a": { "mode": "free", "point": [1.9, 2] }, "b": { "mode": "free", "point": [6, 0.4] },
+              "launch": { "length": 5, "label": "$v$" } },
+            { "id": "high", "type": "trajectory", "dashed": true, "arrows": [0.5], "angle": 25,
+              "a": { "mode": "free", "point": [1.9, 5] }, "b": { "mode": "free", "point": [7, 0.4] },
+              "launch": { "length": 5, "label": "$v$" } },
+            { "id": "P", "type": "point", "label": "P", "at": { "mode": "free", "point": [1.9, 5] } },
+            { "id": "Q", "type": "point", "label": "Q", "at": { "mode": "free", "point": [1.9, 2] } }
+          ] }
+        },
+        {
+          "id": "proj_two", "type": "figure", "kind": "physics.mechanics", "name": "두 공",
+          "frame": { "x": 174, "y": 80, "w": 78, "h": 64 },
+          "view": { "xmin": 0, "xmax": 10, "ymin": 0, "ymax": 8 },
+          "spec": { "objects": [
+            { "id": "slope", "type": "track", "points": [[4, 0], [9, 3]], "rounding": 0, "ground": { "style": "hatch", "side": "below", "depth": 2.5 }, "label": "경사면" },
+            { "id": "A", "type": "ball", "radius": 0.3, "fill": "paper", "label": "A", "pose": { "mode": "free", "point": [1.2, 3] } },
+            { "id": "ghost", "type": "ball", "radius": 0.3, "fill": "paper", "dashed": true, "pose": { "mode": "free", "point": [3.2, 3.8] } },
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.35], "angle": 35,
+              "a": { "mode": "anchor", "object": "A", "anchor": "center" }, "b": { "mode": "free", "point": [6.2, 1.4] },
+              "launch": { "length": 6, "label": "$v_0$" }, "launchAngle": { "auto": true, "reference": true } },
+            { "id": "theta", "type": "angle", "mark": "arc", "auto": false, "label": "$\\theta$",
+              "v": { "mode": "anchor", "object": "path", "anchor": "start" },
+              "a": { "mode": "free", "point": [3, 3] }, "b": { "mode": "tangent", "trajectory": "path", "end": "start" } }
+          ] }
+        },
+        {
+          "id": "proj_axes", "type": "figure", "kind": "physics.mechanics", "name": "좌표축",
+          "frame": { "x": 258, "y": 80, "w": 78, "h": 64 },
+          "view": { "xmin": -1, "xmax": 9, "ymin": -1, "ymax": 7 },
+          "axes": { "x": { "label": "x" }, "y": { "label": "y" }, "origin": true, "originLabel": "O" },
+          "spec": { "objects": [
+            { "id": "path", "type": "trajectory", "dashed": true, "arrows": [0.35], "angle": 50,
+              "a": { "mode": "free", "point": [0, 0] }, "b": { "mode": "free", "point": [6, 0.2] },
+              "launch": { "length": 6, "label": "$v_0$" }, "launchAngle": { "auto": true, "reference": true },
+              "apex": { "drop": true, "label": "최고점" } },
+            { "id": "O", "type": "point", "label": "O", "at": { "mode": "free", "point": [0, 0] } },
+            { "id": "drop", "type": "guide", "dashed": true, "dash": "dot",
+              "a": { "mode": "anchor", "object": "path", "anchor": "apex" }, "b": { "mode": "free", "point": [3, 0] } }
+          ] }
+        }
+      ]
+    }
+  ]
+}

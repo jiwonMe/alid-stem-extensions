@@ -1,0 +1,39 @@
+{
+  "schema": "stemfig/v1",
+  "plugins": ["math.geometry@1"],
+  "nodes": [
+    {
+      "id": "page",
+      "type": "frame",
+      "frame": { "x": 0, "y": 0, "w": 80, "h": 60 },
+      "children": [
+        {
+          "id": "circ",
+          "type": "figure",
+          "kind": "math.geometry",
+          "frame": { "x": 5, "y": 5, "w": 70, "h": 50 },
+          "view": { "xmin": -1, "xmax": 5, "ymin": -1.5, "ymax": 4.5 },
+          "spec": {
+            "objects": [
+              { "id": "A", "def": ["point", 0, 0], "label": "A" },
+              { "id": "B", "def": ["point", 4, 0], "label": "B" },
+              { "id": "C", "def": ["point", 0, 3], "label": "C" },
+              { "id": "c", "def": ["segment", "A", "B"] },
+              { "id": "b", "def": ["segment", "C", "A"] },
+              { "id": "a", "def": ["segment", "B", "C"] },
+              { "id": "k", "def": ["circumcircle", "A", "B", "C"] },
+              { "id": "i", "def": ["incircle", "A", "B", "C"] }
+            ],
+            "angles": [
+              { "id": "n", "a": "B", "v": "A", "b": "C", "mark": "right" }
+            ]
+          },
+          "interaction": {
+            "handles": ["A", "B", "C"],
+            "invariants": ["k", "i"]
+          }
+        }
+      ]
+    }
+  ]
+}

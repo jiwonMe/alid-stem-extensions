@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { createPackageManifest } from '../src/manifest.js';
+import { commandIds, createPackageManifest } from '../src/manifest.js';
 import { validateConfig } from './validate-config.mjs';
 
 export const root = new URL('../', import.meta.url);
@@ -28,10 +28,10 @@ export async function createInstallManifest(outDir = new URL('dist/', root)) {
     sha256: createHash('sha256').update(bundle).digest('hex'),
     aspectIds: contract.provides.aspects,
     capabilities: {
-      readAspects: [`${metadata.id}.note`, 'core.transform', 'core.bounds'],
-      writeAspects: [`${metadata.id}.note`, 'core.transform', 'core.bounds'],
-      services: ['canvas.creation'],
-      commands: [`${metadata.id}:add-note`],
+      readAspects: [...contract.provides.aspects, 'core.transform', 'core.bounds'],
+      writeAspects: [...contract.provides.aspects],
+      services: [],
+      commands: commandIds(metadata),
     },
   };
   return { manifest, manifestText: `${JSON.stringify(manifest, null, 2)}\n`, bundle };

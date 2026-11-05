@@ -1,0 +1,29 @@
+{
+  "schema": "stemfig/v1",
+  "plugins": ["math.geometry@1"],
+  "nodes": [
+    {
+      "id": "page",
+      "type": "frame",
+      "frame": { "x": 0, "y": 0, "w": 80, "h": 60 },
+      "children": [
+        {
+          "id": "sine",
+          "type": "figure",
+          "kind": "math.geometry",
+          "frame": { "x": 5, "y": 5, "w": 70, "h": 50 },
+          "view": { "xmin": -6.3, "xmax": 6.3, "ymin": -2, "ymax": 2 },
+          "grid": {},
+          "axes": { "x": { "label": "x" }, "y": { "label": "y" } },
+          "spec": {
+            "objects": [
+              { "id": "f", "def": ["graph", "y = sin(x)", -6.3, 6.3] },
+              { "id": "A", "def": ["on_path", "f", 0], "label": "A" },
+              { "id": "B", "def": ["on_path", "f", 1.57], "label": "B" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

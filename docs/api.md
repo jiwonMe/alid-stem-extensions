@@ -1,6 +1,8 @@
-# 예제에서 사용하는 확장 API
+# alid 확장 API 참고 (템플릿 원문)
 
-이 문서는 이 템플릿이 사용하는 구조 계약의 안내입니다. npm SDK나 전체 호스트 API 선언은 아닙니다. 별도 패키지를 import하지 않고 아래 형태의 JavaScript 객체를 반환하면 됩니다. `src/index.js`가 실행 가능한 예제입니다.
+> [alid-extension-template](https://github.com/jiwonMe/alid-extension-template) 0.3.0의 API 안내를 그대로 보관합니다. 예제의 스티키 노트·`src/index.js`는 이 저장소에 없습니다. 이 확장의 설계는 [PLAN.md](PLAN.md)를 보세요.
+
+이 문서는 템플릿이 사용하는 구조 계약의 안내입니다. npm SDK나 전체 호스트 API 선언은 아닙니다. 별도 패키지를 import하지 않고 아래 형태의 JavaScript 객체를 반환하면 됩니다.
 
 ## 설치 단위
 

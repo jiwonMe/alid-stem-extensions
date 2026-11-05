@@ -1,0 +1,28 @@
+{
+  "schema": "stemfig/v1",
+  "plugins": ["math.geometry@1"],
+  "nodes": [
+    {
+      "id": "page",
+      "type": "frame",
+      "frame": { "x": 0, "y": 0, "w": 80, "h": 60 },
+      "children": [
+        {
+          "id": "conic",
+          "type": "figure",
+          "kind": "math.geometry",
+          "frame": { "x": 5, "y": 5, "w": 70, "h": 50 },
+          "view": { "xmin": -3, "xmax": 3, "ymin": -3, "ymax": 3 },
+          "grid": {},
+          "axes": { "x": { "label": "x" }, "y": { "label": "y" } },
+          "spec": {
+            "objects": [
+              { "id": "c", "def": ["graph", "x^2 + y^2 = 3"] },
+              { "id": "p", "def": ["path", "M -2 -1 C -1 2 1 2 2 -1"] }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

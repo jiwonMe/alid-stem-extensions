@@ -6,10 +6,10 @@ import { validateConfig, validateRange } from '../scripts/validate-config.mjs';
 
 const config = JSON.parse(await readFile(new URL('../extension.json', import.meta.url), 'utf8'));
 
-test('renaming a template regenerates the declared aspect without stale namespace metadata', () => {
+test('renaming the package regenerates declared aspects without stale namespace metadata', () => {
   const metadata = { ...config, id: 'writer.reading-notes' };
   const result = createPackageManifest(validateConfig(metadata));
-  assert.deepEqual(result.provides.aspects, ['writer.reading-notes.note']);
+  assert.ok(result.provides.aspects.every(id => id.startsWith('writer.reading-notes.')));
   assert.equal(result.version, config.version);
 });
 

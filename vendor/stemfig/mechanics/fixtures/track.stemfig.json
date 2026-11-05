@@ -1,0 +1,82 @@
+{
+  "schema": "stemfig/v1",
+  "latex": "mathjax",
+  "plugins": ["physics.mechanics@1"],
+  "nodes": [
+    {
+      "id": "mechanics_sheet",
+      "type": "frame",
+      "name": "역학 경로",
+      "frame": { "x": 0, "y": 0, "w": 160, "h": 80 },
+      "children": [
+        {
+          "id": "mechanics_track",
+          "type": "figure",
+          "kind": "physics.mechanics",
+          "name": "경로와 힘·높이",
+          "frame": { "x": 5, "y": 5, "w": 150, "h": 70 },
+          "view": { "xmin": -1, "xmax": 23, "ymin": -2, "ymax": 9 },
+          "spec": {
+            "objects": [
+              {
+                "id": "baseline", "type": "guide", "dashed": true,
+                "a": { "mode": "free", "point": [-0.2, 0] },
+                "b": { "mode": "free", "point": [22, 0] }
+              },
+              {
+                "id": "track", "type": "track", "rounding": 0.6,
+                "points": [[0, 4], [5, 0], [9, 0], [12, 3.2], [16, 3.2], [21, 7.2]]
+              },
+              {
+                "id": "initial", "type": "block", "width": 0.9, "height": 0.65, "dashed": true,
+                "pose": { "mode": "track", "track": "track", "t": 0.05128239033785269, "offset": 0 }
+              },
+              {
+                "id": "A", "type": "block", "width": 0.9, "height": 0.65, "dashed": true,
+                "pose": { "mode": "track", "track": "track", "t": 0.31468226110966, "offset": 0 }
+              },
+              {
+                "id": "B", "type": "block", "width": 0.9, "height": 0.65, "dashed": true,
+                "pose": { "mode": "track", "track": "track", "t": 0.6652953293460838, "offset": 0 }
+              },
+              {
+                "id": "C", "type": "block", "width": 0.9, "height": 0.65,
+                "pose": { "mode": "track", "track": "track", "t": 0.9487176096621472, "offset": 0 }
+              },
+              {
+                "id": "force_A", "type": "force", "labelSize": 3, "label": "$F$", "delta": [1.4, 0],
+                "from": { "mode": "anchor", "object": "A", "anchor": "top", "offset": [0.5, 0.08] }
+              },
+              {
+                "id": "force_B", "type": "force", "labelSize": 3, "label": "$F$", "delta": [1.4, 0],
+                "from": { "mode": "anchor", "object": "B", "anchor": "top", "offset": [0.5, 0.08] }
+              },
+              {
+                "id": "height_initial", "type": "dimension", "labelSize": 3, "axis": "vertical", "offset": 0, "label": "$h$",
+                "a": { "mode": "free", "point": [1, 0] },
+                "b": { "mode": "anchor", "object": "initial", "anchor": "bottom" }
+              },
+              {
+                "id": "height_plateau", "type": "dimension", "labelSize": 3, "axis": "vertical", "offset": 0, "label": "$h$",
+                "a": { "mode": "free", "point": [16.5, 0] },
+                "b": { "mode": "free", "point": [16.5, 3.2] }
+              },
+              {
+                "id": "height_final", "type": "dimension", "labelSize": 3, "axis": "vertical", "offset": 0, "label": "$2h$",
+                "a": { "mode": "free", "point": [20, 0] },
+                "b": { "mode": "anchor", "object": "C", "anchor": "bottom" }
+              },
+              { "id": "region_A", "type": "label", "labelSize": 3, "label": "A 구간", "at": { "mode": "free", "point": [6.5, -0.7] } },
+              { "id": "region_B", "type": "label", "labelSize": 3, "label": "B 구간", "at": { "mode": "free", "point": [14, 2.5] } },
+              { "id": "ground", "type": "label", "labelSize": 3, "label": "지면", "at": { "mode": "free", "point": [21.2, -0.7] } },
+              {
+                "id": "stopped", "type": "label", "labelSize": 3, "label": "정지", "labelOffset": [-1, -2],
+                "at": { "mode": "anchor", "object": "C", "anchor": "top" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

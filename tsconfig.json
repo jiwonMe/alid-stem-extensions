@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": [],
+    "allowJs": true,
+    "checkJs": false,
+    "paths": {
+      "@stemfig/display": ["./vendor/stemfig/display/src/index.ts"],
+      "@stemfig/host": ["./vendor/stemfig/host/src/index.ts"],
+      "@stemfig/plugin-kit": ["./vendor/stemfig/plugin-kit/src/index.ts"],
+      "@stemfig/plugin-math-geometry": ["./vendor/stemfig/geometry/src/index.ts"],
+      "@stemfig/plugin-physics-mechanics": ["./vendor/stemfig/mechanics/src/index.ts"]
+    }
+  },
+  "include": ["src", "vendor/stemfig/*/src", "vendor/stemfig/*/fixtures"],
+  "exclude": ["**/*.test.ts", "src/fixtures.ts", "vendor/stemfig/geometry/src/interact/test-harness.ts", "vendor/stemfig/geometry/src/interact/interact-fixture.ts"]
+}

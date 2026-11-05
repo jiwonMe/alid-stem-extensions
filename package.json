@@ -1,6 +1,6 @@
 {
-  "name": "alid-extension-template",
-  "version": "0.3.0",
+  "name": "alid-stem-extensions",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.22.0",
@@ -10,11 +10,23 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
-    "test": "pnpm build && node --test test/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "golden": "node scripts/golden.mjs",
+    "sync:stemfig": "node scripts/sync-stemfig.mjs",
+    "test:vendor": "vitest run",
+    "test": "pnpm build && pnpm test:vendor && node --test test/*.test.mjs",
     "test:watch": "node --test --watch test/plugin.test.mjs test/manifest.test.mjs",
     "check:dist": "pnpm build && git diff --exit-code -- dist/plugin.js alid.extension.json"
   },
+  "dependencies": {
+    "mathjax-full": "3.2.2",
+    "zod": "3.25.76"
+  },
   "devDependencies": {
-    "vite": "8.3.5"
+    "@types/node": "^22.20.5",
+    "fflate": "0.8.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vitest": "4.1.12"
   }
 }

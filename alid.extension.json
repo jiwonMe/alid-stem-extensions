@@ -1,41 +1,28 @@
 {
   "apiVersion": 2,
-  "id": "example.sticky-notes",
-  "version": "0.3.0",
+  "id": "jiwonme.stem",
+  "version": "0.1.0",
   "engine": "^0.1.0",
   "dependencies": {},
   "optionalDependencies": {},
   "conflicts": [],
   "provides": {
     "services": [],
-    "aspects": [
-      "example.sticky-notes.note"
-    ],
+    "aspects": [],
     "hsmSlots": []
   },
-  "title": "스티키 노트",
-  "summary": "캔버스에 짧은 메모를 추가하고 내용과 색상을 편집합니다.",
+  "title": "STEM 작도",
+  "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "entry": "dist/plugin.js",
-  "sha256": "8e026cb824762fd73a0923abeda72ae2b3d9cef910ee56d2210cfd60008ff7a9",
-  "aspectIds": [
-    "example.sticky-notes.note"
-  ],
+  "sha256": "7711860c0169d4880012e53d71538e1c2084047dea23e06ca392271673de55bc",
+  "aspectIds": [],
   "capabilities": {
     "readAspects": [
-      "example.sticky-notes.note",
       "core.transform",
       "core.bounds"
     ],
-    "writeAspects": [
-      "example.sticky-notes.note",
-      "core.transform",
-      "core.bounds"
-    ],
-    "services": [
-      "canvas.creation"
-    ],
-    "commands": [
-      "example.sticky-notes:add-note"
-    ]
+    "writeAspects": [],
+    "services": [],
+    "commands": []
   }
 }

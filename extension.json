@@ -1,8 +1,8 @@
 {
-  "id": "example.sticky-notes",
-  "title": "스티키 노트",
-  "version": "0.3.0",
-  "summary": "캔버스에 짧은 메모를 추가하고 내용과 색상을 편집합니다.",
+  "id": "jiwonme.stem",
+  "title": "STEM 작도",
+  "version": "0.1.0",
+  "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "engine": "^0.1.0",
   "dependencies": {},
   "optionalDependencies": {},

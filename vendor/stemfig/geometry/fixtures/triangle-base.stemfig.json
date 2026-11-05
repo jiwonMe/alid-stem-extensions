@@ -1,0 +1,32 @@
+{
+  "schema": "stemfig/v1",
+  "plugins": ["math.geometry@1"],
+  "nodes": [
+    {
+      "id": "page",
+      "type": "frame",
+      "frame": { "x": 0, "y": 0, "w": 80, "h": 60 },
+      "children": [
+        {
+          "id": "tri",
+          "type": "figure",
+          "kind": "math.geometry",
+          "frame": { "x": 5, "y": 5, "w": 70, "h": 50 },
+          "view": { "xmin": -0.5, "xmax": 4.5, "ymin": -0.5, "ymax": 3.5 },
+          "spec": {
+            "objects": [
+              { "id": "A", "def": ["point", 0, 0], "label": "A" },
+              { "id": "B", "def": ["point", 4, 0], "label": "B" },
+              { "id": "C", "def": ["point", 1.2, 3], "label": "C" },
+              { "id": "c", "def": ["segment", "A", "B"] },
+              { "id": "a", "def": ["segment", "B", "C"] },
+              { "id": "b", "def": ["segment", "C", "A"] },
+              { "id": "M", "def": ["division", "A", "B", 1, 1, "internal"], "label": "M" }
+            ]
+          },
+          "interaction": { "handles": ["A", "B", "C"], "invariants": ["M"] }
+        }
+      ]
+    }
+  ]
+}
