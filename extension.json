@@ -1,7 +1,7 @@
 {
   "id": "jiwonme.stem",
   "title": "STEM 작도",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "engine": "^0.1.0",
   "dependencies": {},

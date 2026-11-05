@@ -16,7 +16,8 @@
     "test:vendor": "vitest run",
     "test": "pnpm build && pnpm test:vendor && node --test test/*.test.mjs",
     "test:watch": "node --test --watch test/plugin.test.mjs test/manifest.test.mjs",
-    "check:dist": "pnpm build && git diff --exit-code -- dist/plugin.js alid.extension.json"
+    "check:dist": "pnpm build && git diff --exit-code -- dist/plugin.js alid.extension.json",
+    "test:gates": "pnpm build && vitest run src/gates.test.ts"
   },
   "dependencies": {
     "mathjax-full": "3.2.2",

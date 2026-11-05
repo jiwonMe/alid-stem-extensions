@@ -22,4 +22,7 @@ export const alidAliases = {
   'alid-host:repository-plugins': host('apps/playground/src/repository-plugins.ts'),
   'alid-host:effective-bounds': host('packages/builtins/src/effective-bounds.ts'),
   'alid-host:clipboard': host('packages/extensions/clipboard/src/install.ts'),
+  'alid-host:core': host('crates/ecanvas-core/pkg/ecanvas_core.js'),
 };
+/** The built Wasm core binary (`pnpm build:wasm` in alid). */
+export const alidCoreWasm = join(alidRoot, 'crates', 'ecanvas-core', 'pkg', 'ecanvas_core_bg.wasm');

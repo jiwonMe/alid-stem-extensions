@@ -62,7 +62,7 @@ alid 엔티티 하나가 stemfig figure 하나에 해당합니다.
 
 - 위치·크기는 alid의 `core.transform`/`core.bounds`가 맡습니다. stemfig `frame`은 여기서 파생합니다(px → mm).
 - **`spec.draft`는 정본에 쓰지 않습니다.** 작도 중간 상태는 로컬 도구 상태와 ScratchOverlay에만 둡니다(Gate 1).
-- `spec`은 stemfig/v1 JSON과 서로 옮길 수 있습니다. 가져오기·내보내기 명령으로 연결합니다.
+- `spec`은 stemfig/v1과 같은 모양이라 stemfig JSON을 붙여넣어 가져올 수 있습니다. alid 그림을 stemfig JSON으로 내보내는 기능은 만들지 않기로 했습니다(P5 결정).
 - 리사이즈는 `view`를 바꾸지 않습니다. stemfig `fitView`의 contain 규칙으로 맞춥니다.
 - 파괴적 스키마 변경은 `jiwonme.stem.geometry@2`처럼 새 어스펙트로 분리합니다.
 
@@ -124,7 +124,7 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
 | **P2 드래그 편집** | 편집 HSM, 손잡이, ScratchOverlay, 단일 Undo, 스냅, Shift/Alt, Escape | 드래그 → Undo 1회로 원복, 취소 시 정본 불변 |
 | **P3 작도 도구** | place/preview/guidance/finish, HUD 툴바·단축키·미니버퍼, 동적 속성 패널, 삭제 | 클릭으로 삼각형→중선→교점, 다단 클릭 작도가 Undo 1회 |
 | **P4 역학 마감** | 경로 부착, 끝점 연결·해제(Alt), 실·도르래, 포물선, 받침대 | stemdraw 역학 fixture 3종 재현 |
-| **P5 문서화** | README, 5대 게이트 검증 기록, stemfig 내보내기 | 검증한 사실과 미검증을 구분해 기록 |
+| **P5 문서화** | README, 5대 게이트 검증 기록 | 검증한 사실과 미검증을 구분해 기록 |
 
 ## 6. 위험
 
@@ -261,3 +261,18 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
 - **playground 수동 확인**: apparatus fixture를 붙여넣어 그림 3개 생성. 용수철 그림 안쪽 편집에서 역학 도구 모음(stemdraw 아이콘) 표시. 용수철 끝 Alt 드래그로 분리 → 상자 위로 다시 끌 때 연결 표시 → 놓으면 다시 붙음. 속성 패널에 "연결 대상 · 연결점" 표시. 콘솔 오류 없음. 실제 마우스가 아니라 합성 포인터 이벤트와 preview 도구의 클릭으로 조작했다.
 - 알려진 점: 속성의 연결 대상 이름에 라벨 원문(`$m$`)이 그대로 보인다. stemdraw의 표기이며 사본은 고치지 않는다(D3). 바꾸려면 stemdraw에서 먼저 고친다.
 - 미검증: 실제 마우스·트랙패드, 분할 뷰, 120fps·0-GC.
+
+### P5 — 문서화와 게이트 검증 (2026-11-05)
+
+- 결정: alid 그림을 stemfig/v1 JSON으로 다시 내보내는 기능은 만들지 않는다(사용자 결정). 가져오기(붙여넣기)만 유지한다.
+- `src/gates.test.ts`: 5대 게이트를 **빌드한 번들**로 **실제 Rust/Wasm 코어**(Loro·단일 Undo·정규 JSONL) 위에서 검증한다. 설치기 검증, 커널 확장 런타임, `core.clipboard`도 함께 쓴다. 로컬 alid 체크아웃과 Wasm 빌드가 없으면 건너뛴다. `pnpm test:gates`로 실행한다.
+- 결과는 [GATES.md](GATES.md)에 확인한 것과 확인하지 않은 것을 나눠 기록했다.
+  - Gate 1·2(자동 부분)·4·5: 통과.
+  - Gate 2: OS 한글 입력기 실기는 미검증.
+  - Gate 3: 120fps·0-GC를 주장하지 않는다. 측정값만 남겼다(점 끌기 한 프레임 p95 약 0.2 ms, 9개 그림 문서 출판 약 4 ms, jsdom·M3 Max). stemfig의 `apply`·`init`이 매번 새 상태를 만들어 핫패스 0-GC 조건은 지키지 않는다.
+- README를 사용자 안내(설치·사용·단축키)와 개발 안내(구성·갱신 절차·검증 범위)로 다시 정리했다.
+- 남은 일(계획 범위 밖):
+  - 동시 편집 시 `spec` 전체 덮어쓰기 문제 해소(`@2` 어스펙트로 객체 단위 병합)
+  - 하위 선택용 커널 `pickTarget` 도입
+  - stemdraw 쪽 라벨 표기(`$m$ · 물체 1`) 개선
+  - 실제 브라우저 성능 계측

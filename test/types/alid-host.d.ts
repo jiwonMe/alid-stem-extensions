@@ -5,3 +5,4 @@ declare module "@alid/kernel" { const kernel: any; export = kernel }
 declare module "alid-host:repository-plugins" { const module: any; export = module }
 declare module "alid-host:effective-bounds" { const module: any; export = module }
 declare module "alid-host:clipboard" { const module: any; export = module }
+declare module "alid-host:core" { const module: any; export = module }
