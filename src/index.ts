@@ -27,6 +27,8 @@ const command = (name: string) => `${metadata.id}:${name}` as SymbolId;
 const PASTE_PRIORITY = 60; // ahead of the markdown card's plain-text handler (40)
 const EDIT = command("edit-figure");
 
+const EDIT_ACTION: UiControl = { id: "edit-figure", kind: "action", label: "그림 안쪽 편집", icon: icons.edit, placement: "selection-bar", commandSymbol: EDIT, requiresSelection: true };
+
 /** The editor of the current activation; aspects consult it to lock the box while editing. */
 let editor: FigureEditor | undefined;
 const aspects = kinds.map((kind) => {
@@ -35,6 +37,8 @@ const aspects = kinds.map((kind) => {
     ...aspect,
     ui: {
       ...aspect.ui,
+      // Declared on the aspect, so the host shows it only for selections holding this figure kind.
+      controls: [...(aspect.ui?.controls ?? []), EDIT_ACTION],
       panels: [{
         panelId: `${kind.aspectId}.inspector` as `${string}.${string}`,
         title: `${kind.label} 속성`,
@@ -55,7 +59,6 @@ const controls: UiControl[] = [
   ...creationPresets.map((preset): UiControl => ({
     id: preset.name, kind: "action", label: preset.label, icon: preset.icon, placement: "tool-shelf", commandSymbol: command(preset.name), requiresSelection: false,
   })),
-  { id: "edit-figure", kind: "action", label: "그림 안쪽 편집", icon: icons.edit, placement: "selection-bar", commandSymbol: EDIT, requiresSelection: true },
 ];
 
 export default {

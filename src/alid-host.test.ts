@@ -88,6 +88,31 @@ suite("inside the alid kernel", () => {
     registry.dispose();
   });
 
+  it("offers inner editing only when a figure is selected, never for other objects", async () => {
+    const { kernel, plugin } = await load();
+    const world = new kernel.CanvasWorld({ commitCanonicalBatch() {}, updateSpatialBounds() {} });
+    world.registerCanonical({ id: "markdown.card", defaults: { body: "" } });
+    for (const aspect of plugin.aspects) world.registerCanonical({ id: aspect.id, defaults: aspect.defaults });
+    world.applyCanonicalTransaction("test:seed", [
+      { id: "card", aspect: "markdown.card", patch: { body: "메모" } },
+      { id: "geo", aspect: plugin.aspects[0].id, patch: {} },
+      { id: "mech", aspect: plugin.aspects[1].id, patch: {} },
+    ]);
+    const registry = new kernel.WorkbenchRegistry(), commands = new kernel.CommandRegistry(world);
+    commands.register({ id: `${plugin.id}:edit-figure`, title: "edit", summary: "edit", run() {} });
+    registry.register(plugin.id, plugin.ui);
+    for (const aspect of plugin.aspects) registry.register(aspect.id, aspect.ui, { aspectId: aspect.id });
+    // The host's rule (DeclarativeControls): a control bound to an aspect shows when a selected entity has it.
+    const shown = (selected: string[]) => registry.getSnapshot().controls
+      .filter((control: { placement: string; aspectId?: string; label: string }) => control.placement === "selection-bar" && (!control.aspectId || selected.some((id) => !!world.getCanonical(id, control.aspectId!))))
+      .map((control: { label: string }) => control.label);
+    expect(shown(["card"])).toEqual([]);
+    expect(shown(["geo"])).toEqual(["그림 안쪽 편집"]);
+    expect(shown(["mech"])).toEqual(["그림 안쪽 편집"]);
+    expect(registry.getSnapshot().controls.filter((control: { placement: string; aspectId?: string }) => control.placement === "selection-bar").every((control: { aspectId?: string }) => !!control.aspectId)).toBe(true);
+    registry.dispose(); commands.dispose();
+  });
+
   it("registers box selection that stays transformable when not editing", async () => {
     const { commands, world, manifest } = await startHost();
     const id = await commands.execute(`${manifest.id}:add-geometry`);

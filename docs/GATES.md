@@ -1,6 +1,6 @@
 # 완료 게이트 검증 기록
 
-alid의 5대 완료 게이트([AGENT.md §7](https://github.com/jiwonMe/alid/blob/main/AGENT.md))에 대해 이 확장(`jiwonme.stem` 0.6.0)이 확인한 것과 확인하지 않은 것을 구분해 적습니다. 자동 검증은 `src/gates.test.ts`가 수행합니다. 이 테스트는 실제 설치 단위와 같은 **빌드한 번들**(`dist/plugin.js`)을 다음 위에서 실행합니다.
+alid의 5대 완료 게이트([AGENT.md §7](https://github.com/jiwonMe/alid/blob/main/AGENT.md))에 대해 이 확장(`jiwonme.stem` 0.6.1)이 확인한 것과 확인하지 않은 것을 구분해 적습니다. 자동 검증은 `src/gates.test.ts`가 수행합니다. 이 테스트는 실제 설치 단위와 같은 **빌드한 번들**(`dist/plugin.js`)을 다음 위에서 실행합니다.
 
 - 로컬 alid 체크아웃의 Rust/Wasm 코어(`WasmCanvasCore`: Loro CRDT, 단일 Undo, 정규 JSONL)
 - 커널(`CanvasWorld`, `ExtensionRuntimeRegistry`, `SceneVectorCompiler`)
@@ -10,7 +10,7 @@ alid의 5대 완료 게이트([AGENT.md §7](https://github.com/jiwonMe/alid/blo
 
 - 측정일: 2026-11-05
 - alid: `6bcc09e`
-- 이 확장: 0.6.0
+- 이 확장: 0.6.1
 
 ## Gate 1 — 정본 순수성: 통과 (자동)
 
