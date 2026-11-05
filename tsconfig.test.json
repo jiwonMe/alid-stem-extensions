@@ -8,6 +8,7 @@
   "include": [
     "src",
     "scripts/*.ts",
+    "test/types",
     "vendor/stemfig/*/src",
     "vendor/stemfig/*/fixtures"
   ],

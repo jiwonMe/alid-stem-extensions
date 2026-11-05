@@ -74,11 +74,14 @@ src/
   manifest.js         번들·빌드 공통 계약 (aspect·command ID)
   engine.ts           stemfig 레지스트리, figure 실행·SVG 직렬화 (P0)
   units.ts            mm ↔ 월드 px, 엔티티 로컬 ↔ figure 좌표
-  figure-aspect.ts    범용 StemfigPlugin → PorcelainExtensionSpec (P1)
+  figure-aspect.ts    범용 figure kind → 어스펙트 (derive/renderSvg/속성) (P1)
+  content.ts          정본 props ↔ stemfig figure 내용 (P1)
+  stemfig-import.ts   stemfig/v1 붙여넣기 (P1)
+  alid.ts             사용하는 alid 공개 계약의 구조 타입 (P1)
   edit/               편집 HSM, 손잡이, ScratchOverlay, 단일 Undo (P2)
   tools/              place/preview/guidance, HUD 툴바·키 (P3)
   inspector-panel.ts  fields/applyField 동적 속성 패널 (P3)
-  kinds/              geometry.ts, mechanics.ts — 플러그인 등록만
+  kinds.ts            플러그인 등록과 생성 프리셋
 vendor/stemfig/       stemdraw 사본 (UPSTREAM.md)
 scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
 ```
@@ -97,8 +100,8 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
 
 ### 선택과 편집
 
-- `selection.hitTest`는 그려진 획을 기준으로 판정합니다. 사각형 경계는 빠른 1차 거부에만 씁니다.
-- `canTransform`은 편집 중이면 false를 돌려줍니다.
+- 객체 선택은 figure 박스입니다. 박스가 stemfig의 clip 프레임이고, stemdraw도 figure 선택에 `frame`을 씁니다. P1은 alid 기본 박스 선택을 그대로 씁니다.
+- P2의 선택 기여는 편집 중 `canTransform`을 false로 돌려 기본 변형 손잡이를 끕니다.
 - 편집 모드 진입은 객체 선택 후 더블클릭 또는 Enter입니다. 진입하면:
   - `root.select.jiwonme.stem:edit` 하위 상태를 올린다.
   - `anchors()`로 손잡이를 등록한다. 우선순위는 20 이상(코어 리사이즈 10보다 높게)이다.
@@ -157,4 +160,32 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
   - 번들 테스트(node --test) 10개 통과.
 - **엔진 동일성**: stemdraw 원본 파이프라인(압축 없는 MathJax)이 그린 fixture 9장 18개 figure를 `test/golden/fixtures.json`에 기록했다. **빌드한 번들**이 같은 figure를 바이트 단위로 똑같이 그린다. 글리프 압축·minify가 결과를 바꾸지 않는다는 근거다.
 - 미검증: 실제 브라우저 alid에서의 설치·실행, 첫 inflate 비용, 120fps·0-GC.
+
+### P1 — 정적 그림 (2026-11-05)
+
+- 어스펙트 `jiwonme.stem.geometry`·`jiwonme.stem.mechanics` (`src/figure-aspect.ts`).
+  - 정본: `{ schema, view, grid, axes, color, handles, spec }`. 커널의 기본값 타입 검사에 맞추기 위해 없는 값은 `null`/`""`로 둔다. `spec.draft`는 생성·가져오기 때 제거한다.
+  - `derive`는 박스(px)를 mm로 바꿔 stemfig 파이프라인을 그대로 실행한다. 결과(DisplayList·SVG 본문)는 파생에만 둔다. 같은 props 객체와 크기면 컴파일을 재사용한다.
+  - `renderSvg`는 `translate · rotate · scale(STEMFIG_TO_WORLD)` 아래에 stemfig SVG 본문을 넣는다. 화면과 출판이 같은 문자열이다.
+  - 엔진·spec 오류는 stemfig 오류 상자, view 같은 봉투 오류는 일반 오류 상자로 그린다. 정본은 보존한다.
+- 결정 변경: P1은 선택 기여를 등록하지 않는다. figure 박스가 곧 stemfig의 clip 프레임이고 stemdraw도 figure 선택에 `frame`을 쓰므로, alid 기본 박스 선택·이동·리사이즈·회전이 그대로 맞다. 내부 손잡이 편집을 위한 선택 기여는 P2에서 추가한다.
+- 생성 도구 3개(`add-geometry`·`add-graph`·`add-mechanics`): 도구 선반 action과 명령. `canvas.creation`으로 한 배치·한 Undo로 만든다. 빈 프레임 대신 편집 가능한 작은 예제로 시작한다.
+- 속성: 격자·축 켜기/끄기(세그먼트). view·색·spec 세부 편집은 P3의 동적 속성 패널에서 다룬다.
+- stemfig/v1 가져오기: `core.clipboard`(선택 의존성)의 붙여넣기 처리기. 지원하는 kind의 figure마다 엔티티 하나, 상대 배치 유지, 삽입 지점 중심. 일반 텍스트는 다른 처리기에 넘긴다.
+- 단위: `worldToMm`을 1e-9 mm로 반올림해 stemfig 프레임이 mm → px → mm 왕복에서 정확히 보존된다(없으면 70 mm가 69.999…가 되어 결과가 달라졌다).
+- 검증:
+  - `pnpm typecheck` 통과.
+  - vitest 685개 통과. 사본 626개, 어댑터·가져오기 단위 테스트, 그리고 alid 통합 테스트 7개를 포함한다.
+  - **alid 통합 테스트** (`src/alid-host.test.ts`): 로컬 alid 체크아웃(`$ALID` 또는 `~/Workspace/alid`)의 실제 커널·설치기 검증·클립보드 확장 위에서 **빌드한 번들**을 실행한다. 다음을 확인한다.
+    - 설치기의 매니페스트·해시·계약 검사 통과
+    - 설치·활성화 시 정본 커밋 0
+    - 프리셋 생성이 각각 Undo 그룹 1개이고 내용 어스펙트만 기록
+    - `compileToPureSvg` 출판 결과에 렌더·파생 오류가 없고, 열람·출판 시 커밋 0
+    - 정본 스냅샷에 파생 데이터 없음
+    - stemfig 붙여넣기가 Undo 그룹 1개
+    - 확장을 꺼도 정본이 보존되고 읽기 전용으로 표시됨
+    - 체크아웃이 없는 CI에서는 이 묶음을 건너뛴다.
+  - 번들 테스트(node --test) 11개 통과. fixture 18개 figure의 바이트 동일성을 유지한다.
+- 번들: 1,520,590 B (1.45 MiB).
+- 미검증: 브라우저 playground에서의 설치·화면 표시(데스크톱 브라우저 미연결), DOM 아일랜드 없이 벡터만 쓰는 객체의 GPU 대역 표시, 한글 라벨의 화면·출판 글꼴 차이, 120fps·0-GC.
 - 메모: 한글 라벨(`A 구간` 등)은 stemdraw에서도 평문 `<text>`라 시스템 글꼴을 쓴다. 화면과 출판의 글꼴 차이는 P1에서 다시 본다.

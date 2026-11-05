@@ -10,6 +10,18 @@ const config = JSON.parse(await readFile(new URL('../extension.json', import.met
 const golden = JSON.parse(await readFile(new URL('./golden/fixtures.json', import.meta.url), 'utf8'));
 const bytes = await readFile(new URL('../dist/plugin.js', import.meta.url));
 
+/** A minimal host: records commands and creation requests, provides no clipboard. */
+function activate() {
+  const commands = new Map(), created = [];
+  const context = {
+    world: {},
+    services: { get: name => name === 'canvas.creation' ? { create: request => { created.push(request); return `ent_${created.length}`; } } : undefined },
+    commands: { register: spec => { commands.set(spec.id, spec); return () => commands.delete(spec.id); } },
+  };
+  const { api, dispose } = plugin.activate(context);
+  return { api, dispose, commands, created };
+}
+
 test('the committed install manifest identifies and hashes the built module', () => {
   assert.equal(manifest.apiVersion, 2);
   assert.equal(manifest.id, plugin.id);
@@ -21,22 +33,46 @@ test('the committed install manifest identifies and hashes the built module', ()
   assert.equal(manifest.sha256, createHash('sha256').update(bytes).digest('hex'));
 });
 
-test('the bundle fits the installer limit and imports only host-shared modules', () => {
+test('the bundle fits the installer limit and imports nothing at runtime', () => {
   assert.ok(bytes.length <= MAX_BUNDLE_BYTES, `${bytes.length} > ${MAX_BUNDLE_BYTES}`);
   const source = bytes.toString('utf8');
-  assert.doesNotMatch(source, /^import\s|[;\n]import\s*[{*\w]/m, 'P0 bundle has no runtime imports');
+  assert.doesNotMatch(source, /^import\s|[;\n]import\s*[{*\w]/m);
   assert.doesNotMatch(source, /i\.upmath\.me/, 'labels never fetch from the network');
 });
 
-test('installing and activating do not write document data; disposal disables the API', () => {
-  const { api, dispose } = plugin.activate({ services: { get: () => { throw new Error('P0 reads no services'); } }, commands: { register: () => { throw new Error('P0 registers no commands'); } } });
-  assert.deepEqual([...api.kinds].sort(), ['math.geometry', 'physics.mechanics']);
-  dispose();
-  assert.throws(() => api.renderFigureSvg(golden[0].kind, golden[0].content, golden[0].size), /비활성화/);
+test('activation registers commands only; creation happens on an explicit command and disposal unregisters', () => {
+  const { api, dispose, commands, created } = activate();
+  assert.deepEqual([...commands.keys()].sort(), [...manifest.capabilities.commands].sort());
+  assert.equal(created.length, 0);
+  for (const control of plugin.ui.controls) {
+    assert.equal(control.placement, 'tool-shelf');
+    assert.equal(control.requiresSelection, false);
+    assert.ok(commands.has(control.commandSymbol));
+  }
+  for (const id of commands.keys()) commands.get(id).run();
+  assert.equal(created.length, 3);
+  for (const request of created) {
+    assert.deepEqual(Object.keys(request.aspects).length, 1);
+    assert.ok(manifest.aspectIds.includes(Object.keys(request.aspects)[0]));
+    assert.ok(!('core.transform' in request.aspects) && !('core.bounds' in request.aspects));
+    assert.ok(request.width > 0 && request.height > 0);
+  }
+  dispose(); dispose();
+  assert.equal(commands.size, 0);
+  assert.throws(() => api.create('add-geometry'), /비활성화/);
+});
+
+test('every aspect has pure-JSON defaults and declarative controls bound to its own fields', () => {
+  for (const aspect of plugin.aspects) {
+    assert.deepEqual(JSON.parse(JSON.stringify(aspect.defaults)), aspect.defaults);
+    for (const control of aspect.ui.controls) assert.ok(Object.hasOwn(aspect.defaults, control.field));
+    assert.equal(typeof aspect.derive, 'function');
+    assert.equal(typeof aspect.renderSvg, 'function');
+  }
 });
 
 test('the built bundle draws every stemdraw fixture byte-identically (glyph pack + minify are invisible)', () => {
-  const { api, dispose } = plugin.activate({});
+  const { api, dispose } = activate();
   try {
     assert.ok(golden.length >= 9);
     for (const item of golden) assert.equal(api.renderFigureSvg(item.kind, item.content, item.size), item.svg, item.name);

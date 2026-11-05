@@ -1,9 +1,9 @@
 /**
  * Shared by the bundle and build script; keep the reviewed and executed contracts identical.
- * Aspect and command IDs are listed here once and grow as phases land (docs/PLAN.md).
+ * Aspect and command IDs are listed here once (docs/PLAN.md).
  */
-export const aspectSuffixes = [];
-export const commandNames = [];
+export const aspectSuffixes = ['geometry', 'mechanics'];
+export const commandNames = ['add-geometry', 'add-graph', 'add-mechanics'];
 
 export const aspectIds = metadata => aspectSuffixes.map(suffix => `${metadata.id}.${suffix}`);
 export const commandIds = metadata => commandNames.map(name => `${metadata.id}:${name}`);

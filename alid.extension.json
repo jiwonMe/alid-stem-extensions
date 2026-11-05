@@ -1,28 +1,48 @@
 {
   "apiVersion": 2,
   "id": "jiwonme.stem",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engine": "^0.1.0",
   "dependencies": {},
-  "optionalDependencies": {},
+  "optionalDependencies": {
+    "core.clipboard": "^0.1.0"
+  },
   "conflicts": [],
   "provides": {
     "services": [],
-    "aspects": [],
+    "aspects": [
+      "jiwonme.stem.geometry",
+      "jiwonme.stem.mechanics"
+    ],
     "hsmSlots": []
   },
   "title": "STEM 작도",
   "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "entry": "dist/plugin.js",
-  "sha256": "7711860c0169d4880012e53d71538e1c2084047dea23e06ca392271673de55bc",
-  "aspectIds": [],
+  "sha256": "6a2bf5143a06fd8ef6cbf757b961d3a3dde594722d4c0102bdd735e300d1e0fd",
+  "aspectIds": [
+    "jiwonme.stem.geometry",
+    "jiwonme.stem.mechanics"
+  ],
   "capabilities": {
     "readAspects": [
+      "jiwonme.stem.geometry",
+      "jiwonme.stem.mechanics",
       "core.transform",
       "core.bounds"
     ],
-    "writeAspects": [],
-    "services": [],
-    "commands": []
+    "writeAspects": [
+      "jiwonme.stem.geometry",
+      "jiwonme.stem.mechanics"
+    ],
+    "services": [
+      "canvas.creation",
+      "canvas.clipboard"
+    ],
+    "commands": [
+      "jiwonme.stem:add-geometry",
+      "jiwonme.stem:add-graph",
+      "jiwonme.stem:add-mechanics"
+    ]
   }
 }
