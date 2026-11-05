@@ -8,9 +8,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { hasAlid } from "../alid-checkout.js";
 
-const suite = hasAlid ? describe : describe.skip;
+declare const __HAS_ALID__: boolean; // vitest.config.js, from alid-checkout.js
+const suite = __HAS_ALID__ ? describe : describe.skip;
 /* jsdom gives import.meta.url an http scheme; vitest runs from the package root. */
 const file = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -26,7 +26,7 @@ async function load() {
 }
 
 /** A headless host: the same services the playground provides, minus DOM surfaces. */
-async function host(options: { clipboard?: boolean } = {}) {
+async function startHost(options: { clipboard?: boolean } = {}) {
   const { kernel, repo, bounds, clipboardSuite, plugin, manifest } = await load();
   const commit = vi.fn();
   const world = new kernel.CanvasWorld({ commitCanonicalBatch: commit, updateSpatialBounds() {} });
@@ -78,7 +78,7 @@ suite("inside the alid kernel", () => {
   });
 
   it("installs and activates without writing the document", async () => {
-    const { registry, commit, world, errors, manifest } = await host();
+    const { registry, commit, world, errors, manifest } = await startHost();
     expect(errors).toEqual([]);
     expect(registry.getSnapshot().find((item: { id: string }) => item.id === manifest.id)?.state).toBe("active");
     expect(commit).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ suite("inside the alid kernel", () => {
   });
 
   it("creates each preset as one undo group with only content aspects, and publishes it as SVG", async () => {
-    const { commands, world, compiler, commit, groups, manifest } = await host();
+    const { commands, world, compiler, commit, groups, manifest } = await startHost();
     for (const name of ["add-geometry", "add-graph", "add-mechanics"]) await commands.execute(`${manifest.id}:${name}`);
     expect(groups()).toBe(3);
     expect(world.listEntityIds()).toHaveLength(3);
@@ -106,7 +106,7 @@ suite("inside the alid kernel", () => {
   });
 
   it("derives a figure box equal to its canonical box and keeps it out of the canonical record", async () => {
-    const { commands, world, manifest } = await host();
+    const { commands, world, manifest } = await startHost();
     const id = await commands.execute(`${manifest.id}:add-geometry`);
     const layout = world.getComputed(id, "computed.layoutBounds");
     const bounds = world.getCanonical(id, "core.bounds");
@@ -117,7 +117,7 @@ suite("inside the alid kernel", () => {
   });
 
   it("pastes stemfig/v1 JSON through core.clipboard as figures, in one undo group", async () => {
-    const { services, world, groups, insertion, manifest } = await host({ clipboard: true });
+    const { services, world, groups, insertion, manifest } = await startHost({ clipboard: true });
     const fixture = file("vendor/stemfig/mechanics/fixtures/apparatus.stemfig.json");
     const clipboard = services.get("canvas.clipboard");
     const data = { getData: (type: string) => (type === "text/plain" ? fixture : ""), files: [], types: ["text/plain"] };
@@ -130,13 +130,13 @@ suite("inside the alid kernel", () => {
   });
 
   it("leaves plain text to other paste handlers", async () => {
-    const { services } = await host({ clipboard: true });
+    const { services } = await startHost({ clipboard: true });
     const data = { getData: () => "그냥 메모", files: [], types: ["text/plain"] };
     expect(services.get("canvas.clipboard").canHandle(data)).toBe(false);
   });
 
   it("keeps document data when the extension is disabled, and shows it read-only", async () => {
-    const { commands, world, registry, manifest, commit } = await host();
+    const { commands, world, registry, manifest, commit } = await startHost();
     const id = await commands.execute(`${manifest.id}:add-mechanics`);
     const before = JSON.stringify(world.exportCanonicalSnapshot());
     const writes = commit.mock.calls.length;

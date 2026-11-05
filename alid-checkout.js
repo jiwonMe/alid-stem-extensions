@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Host integration tests run against a local alid checkout ($ALID or ~/Workspace/alid).
@@ -9,10 +10,16 @@ import { join } from 'node:path';
 export const alidRoot = process.env.ALID ?? join(homedir(), 'Workspace', 'alid');
 export const hasAlid = existsSync(join(alidRoot, 'packages', 'kernel', 'src', 'index.ts'));
 
-/** Test-only module names for the host pieces the integration test drives. */
-export const alidAliases = hasAlid ? {
-  '@alid/kernel': join(alidRoot, 'packages/kernel/src/index.ts'),
-  'alid-host:repository-plugins': join(alidRoot, 'apps/playground/src/repository-plugins.ts'),
-  'alid-host:effective-bounds': join(alidRoot, 'packages/builtins/src/effective-bounds.ts'),
-  'alid-host:clipboard': join(alidRoot, 'packages/extensions/clipboard/src/install.ts'),
-} : {};
+const absent = fileURLToPath(new URL('test/types/alid-absent.js', import.meta.url));
+const host = path => hasAlid ? join(alidRoot, path) : absent;
+
+/**
+ * Test-only module names for the host pieces the integration test drives. Without a
+ * checkout they resolve to an empty module so imports still resolve while the suite skips.
+ */
+export const alidAliases = {
+  '@alid/kernel': host('packages/kernel/src/index.ts'),
+  'alid-host:repository-plugins': host('apps/playground/src/repository-plugins.ts'),
+  'alid-host:effective-bounds': host('packages/builtins/src/effective-bounds.ts'),
+  'alid-host:clipboard': host('packages/extensions/clipboard/src/install.ts'),
+};
