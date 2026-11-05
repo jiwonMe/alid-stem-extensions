@@ -96,6 +96,8 @@ export class FigureEditor {
   private tool?: string;
   private hover?: { x: number; y: number };
   private ghost: readonly DisplayItem[] = [];
+  /** Where the pointer will attach (an object's connection point or a path), page mm; shown as a ring. */
+  private snapMark?: { x: number; y: number; kind: "point" | "path" | "feature" };
   private fieldError?: string;
   private readonly listeners = new Set<() => void>();
   private gesture?: Gesture;
@@ -203,7 +205,7 @@ export class FigureEditor {
     if (!this.entity) return false;
     if (tool && !this.session(this.draft!)?.tools().some((item) => item.id === tool && !("separator" in item))) return false;
     if (this.hasDraft()) this.discardDraft();
-    this.tool = tool; this.ghost = []; this.active = undefined;
+    this.tool = tool; this.ghost = []; this.active = undefined; this.snapMark = undefined;
     this.changed(); this.options.tool.host.requestRender();
     return true;
   }
@@ -315,7 +317,7 @@ export class FigureEditor {
     for (const off of this.gizmoOff.splice(0)) off();
     this.marks.replaceChildren();
     this.entity = undefined; this.kind = undefined; this.box = undefined; this.original = undefined; this.draft = undefined;
-    this.anchors = []; this.active = undefined; this.tool = undefined; this.ghost = []; this.hover = undefined; this.fieldError = undefined;
+    this.anchors = []; this.active = undefined; this.tool = undefined; this.ghost = []; this.hover = undefined; this.fieldError = undefined; this.snapMark = undefined;
     this.options.onEditingChanged?.(undefined);
     this.changed();
     this.options.tool.host.requestRender();
@@ -342,6 +344,12 @@ export class FigureEditor {
     if (!anchor || anchor.kind !== "point") return false;
     pageMmToWorld(this.box, anchor.x_mm, anchor.y_mm, out);
     return true;
+  }
+
+  private snapRing(toScreen: (xMm: number, yMm: number) => [number, number]): string {
+    if (!this.snapMark || !(this.gesture?.moved || (this.tool && !this.gesture))) return "";
+    const [x, y] = toScreen(this.snapMark.x, this.snapMark.y);
+    return snapRingSvg(x, y, this.snapMark.kind);
   }
 
   private pxPerMm(): number { return this.options.tool.host.getZoom() * WORLD_PX_PER_MM; }
@@ -449,6 +457,7 @@ export class FigureEditor {
       const intended = { x: gesture.origin.x + deltaX, y: gesture.origin.y + deltaY };
       const snapped = this.modifiers.alt ? null : session.snap(intended.x, intended.y, gesture.handle, this.pxPerMm());
       const target = snapped ? { x: snapped.x_mm, y: snapped.y_mm } : intended;
+      this.snapMark = snapped ? { x: snapped.x_mm, y: snapped.y_mm, kind: snapped.kind } : undefined;
       patch = {
         id: gesture.handle, dx_mm: target.x - gesture.origin.x, dy_mm: target.y - gesture.origin.y,
         pointer: { x_mm: target.x, y_mm: target.y, unsnap: this.modifiers.alt, px_per_mm: this.pxPerMm(), constrain: this.modifiers.shift },
@@ -538,12 +547,15 @@ export class FigureEditor {
     this.dirty = false;
     this.options.tool.host.screenToWorld(this.hover.x, this.hover.y, this.world);
     worldToPageMm(this.box, this.world.x, this.world.y, this.page);
-    this.ghost = this.session(this.draft)?.preview(this.tool, this.page.x, this.page.y, { unsnap: this.modifiers.alt, constrain: this.modifiers.shift, px_per_mm: this.pxPerMm() }) ?? [];
+    const session = this.session(this.draft);
+    this.ghost = session?.preview(this.tool, this.page.x, this.page.y, { unsnap: this.modifiers.alt, constrain: this.modifiers.shift, px_per_mm: this.pxPerMm() }) ?? [];
+    const snapped = this.modifiers.alt ? null : session?.snap(this.page.x, this.page.y, undefined, this.pxPerMm());
+    this.snapMark = snapped ? { x: snapped.x_mm, y: snapped.y_mm, kind: snapped.kind } : undefined;
   }
 
   private endCapture(): void {
     const pointer = this.gesture?.pointer, element = this.options.tool.surface.element;
-    this.gesture = undefined; this.dirty = false;
+    this.gesture = undefined; this.dirty = false; this.snapMark = undefined;
     if (pointer !== undefined && element.hasPointerCapture?.(pointer)) element.releasePointerCapture(pointer);
   }
 
@@ -636,8 +648,16 @@ export class FigureEditor {
       `<path d="${outline}" fill="none" stroke="${ACCENT}" stroke-width="1" stroke-dasharray="4 3"/>` +
       `<path d="${guides}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-opacity=".45" stroke-linecap="round" stroke-linejoin="round"/>` +
       itemsToHudSvg(this.ghost, toScreen, this.pxPerMm()) +
-      points;
+      points +
+      this.snapRing(toScreen);
   };
+}
+
+function snapRingSvg(x: number, y: number, kind: string): string {
+  // A connection point is a ring; a path foot is a small diamond. Neither is published.
+  return kind === "path"
+    ? `<path data-stem-snap="${kind}" d="M${x},${y - 6}L${x + 6},${y}L${x},${y + 6}L${x - 6},${y}Z" fill="none" stroke="${ACCENT}" stroke-width="2"/>`
+    : `<circle data-stem-snap="${kind}" cx="${x}" cy="${y}" r="8" fill="none" stroke="${ACCENT}" stroke-width="2"/>`;
 }
 
 function escapeAttr(value: string): string {

@@ -3,14 +3,16 @@
  * Test and golden-file support only; not part of the bundle.
  */
 import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { renderSvg } from "@stemfig/display";
 import { compileDocument, isFigure, parseDocument, Registry, walk, type Figure } from "@stemfig/host";
 import type { FigureContent, FigureSize } from "./engine.ts";
 import { stemfigPlugins } from "./kinds.ts";
 
+/* Paths, not import.meta.url: jsdom test environments give it an http scheme. Tests run from the package root. */
 const fixtureFiles = ["geometry", "mechanics"].flatMap((kind) => {
-  const dir = new URL(`../vendor/stemfig/${kind}/fixtures/`, import.meta.url);
-  return readdirSync(dir).filter((name) => name.endsWith(".json")).sort().map((name) => new URL(name, dir));
+  const dir = resolve(process.cwd(), "vendor/stemfig", kind, "fixtures");
+  return readdirSync(dir).filter((name) => name.endsWith(".json")).sort().map((name) => join(dir, name));
 });
 
 export function fixtureFigures(): { name: string; figure: Figure }[] {
@@ -18,7 +20,7 @@ export function fixtureFigures(): { name: string; figure: Figure }[] {
     const doc = parseDocument(JSON.parse(readFileSync(url, "utf8")));
     const figures: Figure[] = [];
     for (const { node } of walk(doc)) if (isFigure(node)) figures.push(node);
-    return figures.map((figure) => ({ name: `${url.pathname.split("/").at(-1)}#${figure.id}`, figure }));
+    return figures.map((figure) => ({ name: `${url.split("/").at(-1)}#${figure.id}`, figure }));
   });
 }
 
