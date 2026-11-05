@@ -79,6 +79,7 @@ src/
   stemfig-import.ts   stemfig/v1 붙여넣기 (P1)
   alid.ts             사용하는 alid 공개 계약의 구조 타입 (P1)
   edit/               편집 HSM, 손잡이, ScratchOverlay, 단일 Undo (P2)
+  icons.ts            도구 아이콘 path 데이터 (P2)
   tools/              place/preview/guidance, HUD 툴바·키 (P3)
   inspector-panel.ts  fields/applyField 동적 속성 패널 (P3)
   kinds.ts            플러그인 등록과 생성 프리셋
@@ -189,3 +190,32 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
 - 번들: 1,520,590 B (1.45 MiB).
 - 미검증: 브라우저 playground에서의 설치·화면 표시(데스크톱 브라우저 미연결), DOM 아일랜드 없이 벡터만 쓰는 객체의 GPU 대역 표시, 한글 라벨의 화면·출판 글꼴 차이, 120fps·0-GC.
 - 메모: 한글 라벨(`A 구간` 등)은 stemdraw에서도 평문 `<text>`라 시스템 글꼴을 쓴다. 화면과 출판의 글꼴 차이는 P1에서 다시 본다.
+
+### P2 — 드래그 편집 (2026-11-05)
+
+- `src/edit/figure-editor.ts`: 플러그인 이름을 모르는 내부 편집기. `canvas.active-tool-surface`를 따라 활성 뷰에 붙는다.
+  - 진입: 선택한 그림을 더블클릭, Enter, 선택 도구 모음의 **그림 안쪽 편집**, 명령 `jiwonme.stem:edit-figure`.
+  - HSM `root.select.jiwonme.stem:edit` 아래 `idle`·`dragging`. 끝내기는 Esc·Enter·그림 밖 클릭·선택 해제·창 비활성화.
+  - 손잡이: stemfig `anchors()`의 점 손잡이를 GizmoRegistry에 우선순위 30으로 등록(리사이즈 10보다 높음). 점이 아닌 손잡이(선분·경로·라벨·물체 몸통)는 stemfig `hit()`로 그림 안 클릭에서 고른다. 표시는 기즈모 평면(HUD)의 SVG.
+  - 드래그 처리:
+    1. 포인터 이벤트는 위치만 기록한다.
+    2. 호스트 프레임(`canvas.frames`)에서 누른 순간의 정본 spec을 기준으로 stemfig `snap`·`apply`를 실행해 ScratchOverlay에 미리보기를 쓴다. stemdraw 에디터의 `handleSnapMove`와 같은 규칙(점 손잡이는 의도 위치 → 스냅 → 절대 포인터 patch).
+    3. 놓으면 `history.begin` → 정본 1회(`spec`만) → `commit`.
+  - 수정키: Shift→`constrain`, Alt→스냅 해제·연결 해제. `onModifiersChanged`로 정지 중 토글 반영.
+  - Esc는 드래그 중이면 미리보기만 버리고 편집을 유지하며, 한 번 더 누르면 편집을 끝낸다. IME 조합 중·직후 16 ms의 키는 무시한다.
+  - 원격 변경·Undo가 편집 중인 그림에 닿으면 드래그를 취소하고 새 정본에서 다시 시작한다(나중 쓰기가 원격 변경을 덮지 않음).
+  - 회전·이동·크기 변경된 그림에서도 손잡이가 박스를 따른다(world px ⇄ 그림 page mm 변환, `edit/figure-frame.ts`).
+- 선택 기여 추가: 박스 선택(정확한 회전 박스 SAT), 편집 중에는 `canTransform` false로 기본 변형 손잡이를 끈다.
+- **아이콘**: alid에 확장 아이콘 계약을 추가했다(아래). 이 확장은 도구별 path 아이콘을 쓴다: 기하(꼭짓점 표시 삼각형), 그래프(축과 포물선), 역학(빗금 지면 위 상자와 힘 화살표), 그림 안쪽 편집(점선 틀 안의 점).
+- **alid 변경(별도 커밋 필요, 미커밋 상태로 둠)**:
+  - `packages/kernel/src/workbench-types.ts`: `WorkbenchIcon = string | { paths: string[]; fill?: boolean }`. action·segmented 선택지·패널 아이콘에 사용.
+  - `packages/kernel/src/workbench.ts`: `validateWorkbenchIcon` — path 명령·숫자만 허용(마크업·URL·알 수 없는 필드 거부), 최대 16개·각 2048자. 등록 시 복제·동결.
+  - `apps/playground/src/components/Icon.tsx`: `ContributedIcon`이 path 데이터를 currentColor로 그린다. 모르는 이름은 기본 아이콘. DeclarativeControls·WorkbenchMenus·WorkbenchChrome·WorkbenchNavigation이 사용.
+  - 테스트: `packages/kernel/src/workbench-icons.test.ts`, `DeclarativeControls.test.tsx`에 1건.
+  - 별건: `packages/sdk/src/svg/jsx-dev-runtime.ts`가 타입 전용 `JSX` 네임스페이스를 값으로 재수출해 playground가 브라우저에서 빈 화면이 되던 문제를 `export type`으로 고쳤다.
+- 검증:
+  - 이 저장소: typecheck 통과, vitest 699개(편집기 12개 — 실제 커널의 CanvasWorld·ToolStateMachine·GizmoRegistry 위에서 진입·미리보기·단일 Undo·스냅/Alt·회전·Esc·IME·클릭만 할 때 무커밋·밖 클릭 종료·원격 변경 재기준·읽기 전용 거부·역학 물체 경로 이동; 통합 9개), 번들 테스트 통과.
+  - alid: `tsc --noEmit` 통과, 전체 vitest 933개 통과.
+  - **브라우저 playground 수동 확인**(dev 연결): 도구 선반·선택 도구 모음에 새 아이콘 표시, 기하 그림 생성, 그림 안쪽 편집 진입, 점 C 드래그(미리보기 후 확정), Esc로 편집 종료, ⌘Z 한 번으로 원복.
+- 번들: 1,538,960 B (1.47 MiB).
+- 미검증: 실제 마우스·트랙패드 입력(합성 PointerEvent로 확인), 분할 뷰 전환 중 편집, OS 한글 IME 실기, 120fps·0-GC.

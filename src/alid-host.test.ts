@@ -77,6 +77,30 @@ suite("inside the alid kernel", () => {
     expect(repo.visualAspectIdsOf(plugin)).toEqual(manifest.aspectIds);
   });
 
+  it("contributes tool icons the host's workbench validator accepts", async () => {
+    const { kernel, plugin } = await load();
+    expect(() => kernel.validateWorkbenchUi(plugin.ui)).not.toThrow();
+    for (const aspect of plugin.aspects) expect(() => kernel.validateWorkbenchUi(aspect.ui, { aspectId: aspect.id })).not.toThrow();
+    for (const control of plugin.ui.controls) expect(control.icon).toMatchObject({ paths: expect.any(Array) });
+    const registry = new kernel.WorkbenchRegistry();
+    registry.register(plugin.id, plugin.ui);
+    expect(registry.getSnapshot().controls.map((control: { icon: unknown }) => control.icon)).toEqual(plugin.ui.controls.map((control: { icon: unknown }) => control.icon));
+    registry.dispose();
+  });
+
+  it("registers box selection that stays transformable when not editing", async () => {
+    const { commands, world, manifest } = await startHost();
+    const id = await commands.execute(`${manifest.id}:add-geometry`);
+    const contribution = world.getSelectionContribution(id);
+    expect(contribution).toBeTruthy();
+    const view = world.getPreviewView(), box = world.getCanonical(id, "core.bounds");
+    expect(contribution.hitTest(id, view, 100 + box.width / 2, 50 + box.height / 2, 1)).toBe(0);
+    expect(contribution.hitTest(id, view, 90, 50, 1)).toBeCloseTo(10);
+    expect(contribution.intersectsRect(id, view, 0, 0, 101, 51)).toBe(true);
+    expect(contribution.intersectsRect(id, view, 0, 0, 99, 49)).toBe(false);
+    expect(contribution.canTransform(id, view)).toBe(true);
+  });
+
   it("installs and activates without writing the document", async () => {
     const { registry, commit, world, errors, manifest } = await startHost();
     expect(errors).toEqual([]);

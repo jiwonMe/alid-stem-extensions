@@ -45,12 +45,14 @@ test('activation registers commands only; creation happens on an explicit comman
   assert.deepEqual([...commands.keys()].sort(), [...manifest.capabilities.commands].sort());
   assert.equal(created.length, 0);
   for (const control of plugin.ui.controls) {
-    assert.equal(control.placement, 'tool-shelf');
-    assert.equal(control.requiresSelection, false);
     assert.ok(commands.has(control.commandSymbol));
+    assert.deepEqual(Object.keys(control.icon).sort(), ['paths'], 'tools draw their own path icon');
+    if (control.placement === 'tool-shelf') assert.equal(control.requiresSelection, false);
+    else { assert.equal(control.placement, 'selection-bar'); assert.equal(control.requiresSelection, true); }
   }
-  for (const id of commands.keys()) commands.get(id).run();
+  for (const control of plugin.ui.controls.filter(item => item.placement === 'tool-shelf')) commands.get(control.commandSymbol).run();
   assert.equal(created.length, 3);
+  assert.equal(commands.get(`${plugin.id}:edit-figure`).run(), false, 'no selection tool, nothing to edit');
   for (const request of created) {
     assert.deepEqual(Object.keys(request.aspects).length, 1);
     assert.ok(manifest.aspectIds.includes(Object.keys(request.aspects)[0]));

@@ -3,7 +3,7 @@
  * Aspect and command IDs are listed here once (docs/PLAN.md).
  */
 export const aspectSuffixes = ['geometry', 'mechanics'];
-export const commandNames = ['add-geometry', 'add-graph', 'add-mechanics'];
+export const commandNames = ['add-geometry', 'add-graph', 'add-mechanics', 'edit-figure'];
 
 export const aspectIds = metadata => aspectSuffixes.map(suffix => `${metadata.id}.${suffix}`);
 export const commandIds = metadata => commandNames.map(name => `${metadata.id}:${name}`);

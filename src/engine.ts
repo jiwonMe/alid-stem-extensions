@@ -5,7 +5,10 @@
  * Labels always use offline MathJax; this extension never fetches upmath.
  */
 import { renderSvg, type Axes, type DisplayItem, type Grid, type View } from "@stemfig/display";
-import { compileDocument, parseDocument, Registry, SCHEMA_ID, type StemfigPlugin } from "@stemfig/host";
+import {
+  applyFigure, compileDocument, hitFigure, indexNodes, listAnchors, parseDocument, Registry, SCHEMA_ID, snapFigure,
+  type Document, type HandleAnchor, type HandlePatch, type SnapHit, type StemfigPlugin,
+} from "@stemfig/host";
 
 /** The figure content shared by every kind. Position and size belong to the host canvas. */
 export type FigureContent = {
@@ -52,30 +55,9 @@ export function createEngine(plugins: readonly StemfigPlugin[]) {
   function compileFigure(kind: string, content: FigureContent, size: FigureSize): CompiledFigure {
     const plugin = pluginFor(kind);
     const frame = { x: 0, y: 0, w: size.width_mm, h: size.height_mm };
-    let doc;
+    let doc: Document;
     try {
-      doc = parseDocument({
-        schema: SCHEMA_ID,
-        plugins: [`${plugin.kind}@${plugin.version}`],
-        latex: "mathjax",
-        nodes: [{
-          id: PAGE_ID,
-          type: "frame",
-          frame,
-          children: [{
-            id: FIGURE_ID,
-            type: "figure",
-            kind,
-            frame,
-            view: content.view,
-            ...(content.grid ? { grid: content.grid } : {}),
-            ...(content.axes ? { axes: content.axes } : {}),
-            ...(content.color ? { color: content.color } : {}),
-            ...(content.handles ? { interaction: { handles: content.handles, invariants: [] } } : {}),
-            spec: content.spec,
-          }],
-        }],
-      });
+      doc = figureDocument(plugin, kind, content, frame);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { items: [], body: envelopeErrorBox(frame.w, frame.h), fontFamily: "", error: message };
@@ -87,6 +69,32 @@ export function createEngine(plugins: readonly StemfigPlugin[]) {
     return { items: list.items, body: match[2]!, fontFamily: match[1]! };
   }
 
+  /**
+   * Handle editing on one figure, through stemfig's own host functions so behaviour
+   * (locks, rejected edits, snapping) matches stemdraw. Coordinates are page mm with
+   * the figure at the origin. A broken figure has no handles and rejects edits.
+   */
+  function editFigure(kind: string, content: FigureContent, size: FigureSize) {
+    const plugin = pluginFor(kind);
+    const frame = { x: 0, y: 0, w: size.width_mm, h: size.height_mm };
+    let doc: Document;
+    try { doc = figureDocument(plugin, kind, content, frame); } catch { return undefined; }
+    return {
+      anchors: (): HandleAnchor[] => { try { return listAnchors(doc, FIGURE_ID, registry); } catch { return []; } },
+      hit: (x_mm: number, y_mm: number): string | null => { try { return hitFigure(doc, FIGURE_ID, x_mm, y_mm, registry); } catch { return null; } },
+      snap: (x_mm: number, y_mm: number, exclude: string, px_per_mm: number): SnapHit | null => {
+        try { return snapFigure(doc, FIGURE_ID, x_mm, y_mm, registry, exclude, false, px_per_mm); } catch { return null; }
+      },
+      /** The new spec, or undefined when the plugin rejected or did not change it. */
+      apply: (patch: HandlePatch): unknown => {
+        const next = applyFigure(doc, FIGURE_ID, patch, registry);
+        if (next === doc) return undefined;
+        const figure = indexNodes(next).figures[0];
+        return figure?.spec;
+      },
+    };
+  }
+
   /** One figure as a complete SVG document in stemfig px, origin top-left. */
   function renderFigureSvg(kind: string, content: FigureContent, size: FigureSize): string {
     const { body, fontFamily } = compileFigure(kind, content, size);
@@ -94,10 +102,36 @@ export function createEngine(plugins: readonly StemfigPlugin[]) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" font-family="${fontFamily}">${body}</svg>`;
   }
 
-  return { compileFigure, renderFigureSvg, pluginFor, kinds: [...byKind.keys()] };
+  return { compileFigure, editFigure, renderFigureSvg, pluginFor, kinds: [...byKind.keys()] };
 }
 
 export type StemEngine = ReturnType<typeof createEngine>;
+
+/** A one-figure stemfig/v1 document with the figure at the page origin. Throws on an invalid envelope. */
+function figureDocument(plugin: StemfigPlugin, kind: string, content: FigureContent, frame: { x: number; y: number; w: number; h: number }): Document {
+  return parseDocument({
+    schema: SCHEMA_ID,
+    plugins: [`${plugin.kind}@${plugin.version}`],
+    latex: "mathjax",
+    nodes: [{
+      id: PAGE_ID,
+      type: "frame",
+      frame,
+      children: [{
+        id: FIGURE_ID,
+        type: "figure",
+        kind,
+        frame,
+        view: content.view,
+        ...(content.grid ? { grid: content.grid } : {}),
+        ...(content.axes ? { axes: content.axes } : {}),
+        ...(content.color ? { color: content.color } : {}),
+        ...(content.handles ? { interaction: { handles: content.handles, invariants: [] } } : {}),
+        spec: content.spec,
+      }],
+    }],
+  });
+}
 
 function envelopeErrorBox(wMm: number, hMm: number): string {
   const w = wMm * 4, h = hMm * 4;

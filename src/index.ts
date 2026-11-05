@@ -1,7 +1,12 @@
 import metadata from "../extension.json";
-import type { ActivationContext, ClipboardService, CommandSpec, EntityCreationRequest, SymbolId, UiControl } from "./alid.ts";
+import type {
+  ActivationContext, CanvasFrameScheduler, CanvasToolInputRegistry, CanvasToolSurface, CanvasToolSurfaceProvider,
+  ClipboardService, CommandSpec, EntityCreationRequest, SymbolId, UiControl,
+} from "./alid.ts";
+import { FigureEditor } from "./edit/figure-editor.ts";
 import { createEngine } from "./engine.ts";
 import { createFigureAspect } from "./figure-aspect.ts";
+import { icons } from "./icons.ts";
 import { creationPresets, figureKinds, stemfigPlugins } from "./kinds.ts";
 import { createPackageManifest } from "./manifest.js";
 import { looksLikeStemfig, stemfigToOps } from "./stemfig-import.ts";
@@ -9,25 +14,33 @@ import { mmToWorld } from "./units.ts";
 
 /**
  * jiwonme.stem: stemfig figures as alid canvas objects (docs/PLAN.md).
- * P1: static figures, creation tools and stemfig/v1 import. Installing or activating
- * never writes document data; only explicit commands and pastes create entities.
+ * Static figures, creation tools, stemfig/v1 import, and dragging a figure's
+ * inner handles. Installing or activating never writes document data; only
+ * explicit commands, pastes and drags do.
  */
 export const engine = createEngine(stemfigPlugins);
 const kinds = figureKinds(metadata.id);
-const aspects = kinds.map((kind) => createFigureAspect(engine, kind));
 const aspectOf = new Map(kinds.map((kind) => [kind.kind, kind.aspectId]));
 const command = (name: string) => `${metadata.id}:${name}` as SymbolId;
 const PASTE_PRIORITY = 60; // ahead of the markdown card's plain-text handler (40)
+const EDIT = command("edit-figure");
 
-const toolShelf: UiControl[] = creationPresets.map((preset) => ({
-  id: preset.name, kind: "action", label: preset.label, icon: "plus", placement: "tool-shelf", commandSymbol: command(preset.name), requiresSelection: false,
-}));
+/** The editor of the current activation; aspects consult it to lock the box while editing. */
+let editor: FigureEditor | undefined;
+const aspects = kinds.map((kind) => createFigureAspect(engine, kind, (id) => editor?.isEditingEntity(id) ?? false));
+
+const controls: UiControl[] = [
+  ...creationPresets.map((preset): UiControl => ({
+    id: preset.name, kind: "action", label: preset.label, icon: preset.icon, placement: "tool-shelf", commandSymbol: command(preset.name), requiresSelection: false,
+  })),
+  { id: "edit-figure", kind: "action", label: "그림 안쪽 편집", icon: icons.edit, placement: "selection-bar", commandSymbol: EDIT, requiresSelection: true },
+];
 
 export default {
   ...createPackageManifest(metadata),
   summary: metadata.summary,
   aspects,
-  ui: { controls: toolShelf },
+  ui: { controls },
   activate(context: ActivationContext) {
     let active = true;
     const disposers: Array<() => void> = [];
@@ -55,6 +68,48 @@ export default {
       disposers.push(context.commands.register(spec));
     }
 
+    // ── inner editing: follows the active canvas view; absent without a selection tool ──
+    const surfaces = context.services.get<CanvasToolSurfaceProvider>("canvas.active-tool-surface");
+    let bound: CanvasToolSurface | undefined;
+    const bind = (): FigureEditor | undefined => {
+      const tool = surfaces?.get();
+      if (tool === bound && editor) return editor;
+      editor?.dispose(); editor = undefined; bound = tool;
+      if (!tool) return undefined;
+      editor = new FigureEditor({
+        world: context.world, engine, kinds, tool, namespace: metadata.id,
+        frames: context.services.get<CanvasFrameScheduler>("canvas.frames"),
+        externalKeyboard: !!context.services.get("canvas.tool-input"),
+        onEditingChanged: () => tool.host.requestRender(),
+      });
+      return editor;
+    };
+    const enterEdit = () => {
+      live();
+      const current = bind();
+      if (!current || bound?.host.isSelectionEnabled?.() === false) return false;
+      const ids = bound!.selection.getSelection();
+      return ids.length === 1 && current.enter(ids[0]!);
+    };
+    bind();
+    if (surfaces) disposers.push(surfaces.subscribe(() => { bind(); }));
+    disposers.push(context.commands.register({
+      id: EDIT,
+      title: "그림 안쪽 편집",
+      summary: "선택한 그림의 점·경로·라벨을 직접 끌어 편집합니다. 더블클릭이나 Enter로 들어가고 Esc나 Enter로 끝냅니다.",
+      shortcutScope: "canvas",
+      run: enterEdit,
+    }));
+    const input = context.services.get<CanvasToolInputRegistry>("canvas.tool-input");
+    const plainEnter = (event: KeyboardEvent) => event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+    if (input) disposers.push(input.register(metadata.id, {
+      handleKeyDown: (event) => {
+        if (editor?.editingEntityId) return editor.handleKeyDown(event);
+        // Enter on one selected figure enters editing, like the vector path editor.
+        return plainEnter(event) && !event.isComposing && enterEdit();
+      },
+    }));
+
     // stemfig/v1 JSON on the clipboard pastes as figures. Optional: needs core.clipboard.
     // Reading a provider's service throws when no provider is installed at all.
     let clipboard: ClipboardService | undefined;
@@ -76,6 +131,8 @@ export default {
       aspectIds: kinds.map((kind) => kind.aspectId),
       presets: creationPresets.map((preset) => preset.name),
       create,
+      /** Enters inner editing on the single selected figure. */
+      edit: enterEdit,
       renderFigureSvg: (...args: Parameters<typeof engine.renderFigureSvg>) => { live(); return engine.renderFigureSvg(...args); },
     });
     return {
@@ -84,6 +141,7 @@ export default {
         if (!active) return;
         active = false;
         for (const dispose of disposers.splice(0).reverse()) dispose();
+        editor?.dispose(); editor = undefined; bound = undefined;
       },
     };
   },

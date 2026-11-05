@@ -6,7 +6,9 @@ import { mathGeometryPlugin } from "@stemfig/plugin-math-geometry";
 import { physicsMechanicsPlugin } from "@stemfig/plugin-physics-mechanics";
 import type { StemfigPlugin } from "@stemfig/host";
 import { CONTENT_SCHEMA, type FigureProps } from "./content.ts";
+import type { WorkbenchIcon } from "./alid.ts";
 import type { FigureKind } from "./figure-aspect.ts";
+import { icons } from "./icons.ts";
 import { mmToWorld } from "./units.ts";
 
 export const stemfigPlugins: readonly StemfigPlugin[] = [
@@ -20,6 +22,7 @@ export type CreationPreset = {
   label: string;
   summary: string;
   kind: string;
+  icon: WorkbenchIcon;
   props: FigureProps;
   /** Page size in mm, as a stemfig figure frame. */
   size_mm: { w: number; h: number };
@@ -60,6 +63,7 @@ export const creationPresets: readonly CreationPreset[] = [
     label: "기하 작도 추가",
     summary: "삼각형 하나로 시작하는 기하 작도를 추가합니다.",
     kind: "math.geometry",
+    icon: icons.geometry,
     size_mm: { w: 70, h: 50 },
     props: blank({ xmin: -0.5, xmax: 4.5, ymin: -0.5, ymax: 3.5 }, {
       objects: [
@@ -77,6 +81,7 @@ export const creationPresets: readonly CreationPreset[] = [
     label: "함수 그래프 추가",
     summary: "좌표축과 격자 위에 y = x²/2 − 1 그래프를 추가합니다.",
     kind: "math.geometry",
+    icon: icons.graph,
     size_mm: { w: 70, h: 50 },
     props: blank({ xmin: -3, xmax: 3, ymin: -2, ymax: 3 }, {
       objects: [{ id: "f", def: ["graph", "y = x^2/2 - 1"] }],
@@ -87,6 +92,7 @@ export const creationPresets: readonly CreationPreset[] = [
     label: "역학 도식 추가",
     summary: "지면 위 물체와 힘 화살표로 시작하는 역학 도식을 추가합니다.",
     kind: "physics.mechanics",
+    icon: icons.mechanics,
     size_mm: { w: 100, h: 50 },
     props: blank({ xmin: 0, xmax: 20, ymin: -1, ymax: 9 }, {
       objects: [
