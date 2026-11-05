@@ -24,7 +24,8 @@ export type FigureProps = {
   spec: Record<string, unknown>;
 };
 
-export function figureProps(content: FigureContent): FigureProps {
+/** `keepDraft` is for local editor state only; canonical writes never carry a draft. */
+export function figureProps(content: FigureContent, options: { keepDraft?: boolean } = {}): FigureProps {
   return {
     schema: CONTENT_SCHEMA,
     view: { ...content.view },
@@ -32,7 +33,7 @@ export function figureProps(content: FigureContent): FigureProps {
     axes: content.axes ? structuredClone(content.axes) : null,
     color: content.color ?? "",
     handles: content.handles ? [...content.handles] : null,
-    spec: withoutDraft(content.spec),
+    spec: options.keepDraft ? structuredClone(content.spec as Record<string, unknown>) : withoutDraft(content.spec),
   };
 }
 

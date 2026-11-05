@@ -7,15 +7,17 @@
  * live here and in a ScratchOverlay; canonical data is written once, on release
  * (docs/PLAN.md §4 선택과 편집, AGENT.md Playbook B).
  */
-import type { HandleAnchor, HandlePatch } from "@stemfig/host";
+import type { DisplayItem } from "@stemfig/display";
+import type { FieldPatch, FigureTool, HandleAnchor, HandlePatch, InspectField, ToolGuidance } from "@stemfig/host";
 import type {
   CanvasFrameScheduler, CanvasToolSurface, CanvasWorld, EntityId, GizmoHit, MutablePoint, SymbolId, ToolModifiers,
 } from "../alid.ts";
-import { figureContent, type FigureProps } from "../content.ts";
+import { figureContent, figureProps, type FigureProps } from "../content.ts";
 import type { StemEngine } from "../engine.ts";
 import { readGeometry, type FigureGeometry, type FigureKind } from "../figure-aspect.ts";
 import { worldToMm, WORLD_PX_PER_MM } from "../units.ts";
 import { insideBox, pageMmToWorld, worldToPageMm } from "./figure-frame.ts";
+import { itemsToHudSvg } from "./hud-items.ts";
 
 const NS = "http://www.w3.org/2000/svg";
 const IDLE = "root.select.core.select-suite:idle";
@@ -42,6 +44,18 @@ export interface FigureEditorOptions {
   onEditingChanged?(id: EntityId | undefined): void;
 }
 
+/** What a toolbar or inspector needs to show while a figure is being edited. */
+export interface EditorSnapshot {
+  entity: EntityId;
+  kind: string;
+  tools: readonly FigureTool[];
+  tool?: string;
+  guidance?: ToolGuidance;
+  handle?: string;
+  fields: readonly InspectField[];
+  error?: string;
+}
+
 interface Gesture {
   pointer: number;
   handle: string;
@@ -59,7 +73,6 @@ let instance = 0;
 export class FigureEditor {
   readonly state: string;
   private readonly owner: string;
-  private readonly commitSymbol: SymbolId;
   private readonly scratch;
   private readonly abort = new AbortController();
   private readonly off: Array<() => void> = [];
@@ -79,6 +92,12 @@ export class FigureEditor {
   private draft?: FigureProps;
   private anchors: HandleAnchor[] = [];
   private active?: string;
+  /** The placement tool, if one is armed. Its unfinished construction lives in `draft` and scratch only. */
+  private tool?: string;
+  private hover?: { x: number; y: number };
+  private ghost: readonly DisplayItem[] = [];
+  private fieldError?: string;
+  private readonly listeners = new Set<() => void>();
   private gesture?: Gesture;
   private dirty = false;
   private mutating = false;
@@ -90,7 +109,6 @@ export class FigureEditor {
     const n = ++instance;
     this.owner = `${options.namespace}:figure-editor:${n}`;
     this.state = `root.select.${options.namespace}:edit`;
-    this.commitSymbol = `${options.namespace}:drag-handle` as SymbolId;
     this.scratch = options.world.createScratchOverlay(this.owner);
     const { surface } = options.tool, doc = surface.element.ownerDocument;
     this.svg = doc.createElementNS(NS, "svg") as SVGSVGElement;
@@ -138,7 +156,7 @@ export class FigureEditor {
     if (!kind) return false;
     if (this.entity === id) return true;
     this.exit();
-    this.entity = id; this.kind = kind; this.active = undefined;
+    this.entity = id; this.kind = kind; this.active = undefined; this.tool = undefined; this.fieldError = undefined;
     this.readCanonical();
     tool.selection.select(id);
     tool.selection.stateMachine.transition(`${this.state}.idle`);
@@ -152,10 +170,74 @@ export class FigureEditor {
     if (this.entity) this.options.tool.selection.stateMachine.transition(IDLE);
   };
 
-  /** Escape cancels the drag first, then leaves editing. */
+  /** Escape cancels the drag, then the construction in progress, then the tool, then editing. */
   cancel(): boolean {
     if (!this.entity) return false;
-    if (this.gesture) this.cancelGesture(); else this.exit();
+    if (this.gesture) this.cancelGesture();
+    else if (this.hasDraft()) this.discardDraft();
+    else if (this.tool) this.setTool(undefined);
+    else this.exit();
+    return true;
+  }
+
+  // ── public editing API (toolbar, inspector, commands) ──────────────────
+
+  subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
+  private changed(): void { for (const listener of this.listeners) listener(); }
+
+  snapshot(): EditorSnapshot | undefined {
+    if (!this.entity || !this.kind || !this.draft) return undefined;
+    const session = this.session(this.draft);
+    return {
+      entity: this.entity, kind: this.kind.kind,
+      tools: session?.tools() ?? [],
+      ...(this.tool ? { tool: this.tool, guidance: session?.guidance(this.tool) } : {}),
+      ...(this.active ? { handle: this.active } : {}),
+      fields: session?.fields(this.active) ?? [],
+      ...(this.fieldError ? { error: this.fieldError } : {}),
+    };
+  }
+
+  /** Arms a placement tool (or none). Switching drops any unfinished construction. */
+  setTool(tool: string | undefined): boolean {
+    if (!this.entity) return false;
+    if (tool && !this.session(this.draft!)?.tools().some((item) => item.id === tool && !("separator" in item))) return false;
+    if (this.hasDraft()) this.discardDraft();
+    this.tool = tool; this.ghost = []; this.active = undefined;
+    this.changed(); this.options.tool.host.requestRender();
+    return true;
+  }
+
+  /** Completes a construction that needs an explicit end (a track's points). */
+  finishTool(): boolean {
+    if (!this.entity || !this.tool || !this.draft) return false;
+    const result = this.session(this.draft)?.finish(this.tool);
+    if (!result?.content) return false;
+    this.afterPlace(result.content, result.handle);
+    return true;
+  }
+
+  /** Writes one inspector value through the plugin; one undo step. Returns the rejection reason, if any. */
+  setField(key: string, value: number | string | boolean): string | undefined {
+    if (!this.entity || !this.draft || this.gesture) return "편집 중인 그림이 없습니다.";
+    const session = this.session(this.original!);
+    const patch: FieldPatch = { id: this.active ?? "", key, value };
+    const reason = session?.validateField(patch);
+    if (reason) { this.fieldError = reason; this.changed(); return reason; }
+    this.fieldError = undefined;
+    const next = session?.applyField(patch);
+    if (next) this.commitProps(figureProps({ ...next, spec: next.spec }), "set-field");
+    this.changed();
+    return undefined;
+  }
+
+  /** Deletes the chosen handle and everything that depends on it; one undo step. */
+  removeActive(): boolean {
+    if (!this.entity || !this.active || this.gesture || this.hasDraft()) return false;
+    const next = this.session(this.original!)?.remove([this.active]);
+    if (!next) return false;
+    this.active = undefined;
+    this.commitProps(figureProps(next), "delete");
     return true;
   }
 
@@ -163,7 +245,23 @@ export class FigureEditor {
     if (!this.entity || this.options.tool.host.isSelectionEnabled?.() === false || inputOwned(event) || this.imeLocked(event) || event.getModifierState("AltGraph")) return false;
     this.setModifiers(event);
     if (event.key === "Escape") { this.cancel(); return true; }
-    if (event.key === "Enter") { if (this.gesture) this.cancelGesture(); else this.exit(); return true; }
+    if (event.key === "Enter") {
+      if (this.gesture) this.cancelGesture();
+      else if (this.tool && this.hasDraft()) this.finishTool();
+      else this.exit();
+      return true;
+    }
+    if ((event.key === "Delete" || event.key === "Backspace") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      this.removeActive();
+      return true;
+    }
+    // Plain letter keys pick stemfig's tools while editing; V returns to select-and-drag.
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && /^[a-z]$/i.test(event.key) && !this.gesture) {
+      const key = event.key.toUpperCase();
+      if (key === "V") { this.setTool(undefined); return true; }
+      const tool = this.session(this.draft!)?.tools().find((item) => !("separator" in item) && item.shortcut?.toUpperCase() === key);
+      if (tool) { this.setTool(tool.id); return true; }
+    }
     return false;
   }
 
@@ -188,7 +286,21 @@ export class FigureEditor {
     this.original = world.getCanonical<FigureProps>(id, this.kind!.aspectId)!;
     this.box = readGeometry({ getCanonical: (e, a) => world.getCanonical(e, a), getComputed: () => undefined, isAlive: () => true }, id, this.kind!.defaultSize);
     this.draft = { ...this.original };
+    this.scratch.clear();
     this.refreshAnchors();
+    this.changed();
+  }
+
+  private hasDraft(): boolean {
+    const spec = this.draft?.spec as { draft?: unknown } | undefined;
+    return !!spec && spec.draft !== undefined;
+  }
+
+  private discardDraft(): void {
+    this.scratch.clear();
+    if (this.entity) this.readCanonical();
+    this.ghost = [];
+    this.options.tool.host.requestRender();
   }
 
   private refreshAnchors(): void {
@@ -203,8 +315,9 @@ export class FigureEditor {
     for (const off of this.gizmoOff.splice(0)) off();
     this.marks.replaceChildren();
     this.entity = undefined; this.kind = undefined; this.box = undefined; this.original = undefined; this.draft = undefined;
-    this.anchors = []; this.active = undefined;
+    this.anchors = []; this.active = undefined; this.tool = undefined; this.ghost = []; this.hover = undefined; this.fieldError = undefined;
     this.options.onEditingChanged?.(undefined);
+    this.changed();
     this.options.tool.host.requestRender();
   }
 
@@ -252,6 +365,13 @@ export class FigureEditor {
   /** Starts a drag on a stemfig handle. Returns false if the handle cannot be dragged. */
   private begin(handle: string, event: PointerEvent): boolean {
     if (!this.entity || this.gesture || event.button !== 0 || !this.box) return false;
+    if (this.tool) {
+      this.options.tool.host.screenToWorld(event.clientX, event.clientY, this.world);
+      worldToPageMm(this.box, this.world.x, this.world.y, this.page);
+      this.place(this.page.x, this.page.y, event);
+      this.stop(event);
+      return true;
+    }
     this.options.tool.host.screenToWorld(event.clientX, event.clientY, this.world);
     const anchor = this.anchors.find((item) => item.id === handle && item.kind === "point");
     this.gesture = {
@@ -261,6 +381,8 @@ export class FigureEditor {
       clientX: event.clientX, clientY: event.clientY, lastX: event.clientX, lastY: event.clientY, moved: false,
     };
     this.active = handle;
+    this.fieldError = undefined;
+    this.changed();
     this.setModifiers(event);
     this.options.tool.surface.element.setPointerCapture?.(event.pointerId);
     this.options.tool.host.requestRender();
@@ -275,17 +397,29 @@ export class FigureEditor {
       if (this.begin(this.hit.id.slice(this.owner.length + 1), event)) return;
     }
     host.screenToWorld(event.clientX, event.clientY, this.world);
-    if (!insideBox(this.box, this.world.x, this.world.y, this.page)) { this.exit(); return; }
+    if (!insideBox(this.box, this.world.x, this.world.y, this.page)) {
+      if (this.tool) { this.stop(event); return; } // a tool click outside never leaves editing
+      this.exit(); return;
+    }
+    if (this.tool) { this.place(this.page.x, this.page.y, event); this.stop(event); return; }
     const handle = this.draft && this.session(this.draft)?.hit(this.page.x, this.page.y);
     if (handle) { this.begin(handle, event); return; }
     // Empty paper inside the figure: clear the handle choice but stay in editing.
     this.active = undefined;
+    this.changed();
     host.requestRender();
     this.stop(event);
   };
 
   private readonly move = (event: PointerEvent) => {
     const gesture = this.gesture;
+    if (!gesture && this.tool && this.entity) {
+      this.hover = { x: event.clientX, y: event.clientY };
+      this.modifiers.shift = event.shiftKey; this.modifiers.alt = event.altKey;
+      this.dirty = true;
+      this.options.tool.host.requestRender();
+      return;
+    }
     if (!gesture || gesture.pointer !== event.pointerId) return;
     gesture.lastX = event.clientX; gesture.lastY = event.clientY;
     this.modifiers.shift = event.shiftKey; this.modifiers.alt = event.altKey;
@@ -345,13 +479,22 @@ export class FigureEditor {
   };
 
   private commit(): void {
+    if (this.draft) this.commitProps(this.draft, "drag-handle");
+  }
+
+  /** One canonical write in one undo group. Only fields that changed are patched; drafts never are. */
+  private commitProps(props: FigureProps, action: "drag-handle" | "place" | "set-field" | "delete"): void {
     const { world, tool } = this.options;
-    if (!this.entity || !this.draft || !this.kind) return;
+    if (!this.entity || !this.kind || !this.original) return;
+    const patch: Record<string, unknown> = {};
+    for (const key of ["spec", "handles"] as const) if (JSON.stringify(props[key]) !== JSON.stringify(this.original[key])) patch[key] = props[key];
+    if ((patch.spec as { draft?: unknown } | undefined)?.draft !== undefined) throw new Error("An unfinished construction cannot be committed.");
     this.scratch.clear();
+    if (!Object.keys(patch).length) { this.readCanonical(); return; }
     this.mutating = true;
     tool.host.history.begin();
     try {
-      world.applyCanonicalTransaction(this.commitSymbol, [{ id: this.entity, aspect: this.kind.aspectId, patch: { spec: this.draft.spec } }], "local:user");
+      world.applyCanonicalTransaction(`${this.options.namespace}:${action}` as SymbolId, [{ id: this.entity, aspect: this.kind.aspectId, patch }], "local:user");
       tool.host.history.commit();
     } catch (error) {
       tool.host.history.abort();
@@ -360,6 +503,42 @@ export class FigureEditor {
       this.mutating = false;
       if (this.entity) this.readCanonical();
     }
+  }
+
+  private modifiersFor(event: MouseEvent) {
+    return { unsnap: event.altKey, constrain: event.shiftKey, px_per_mm: this.pxPerMm() };
+  }
+
+  /** One tool click. Intermediate steps stay in scratch; a finished construction commits once. */
+  private place(xMm: number, yMm: number, event: MouseEvent): void {
+    if (!this.tool || !this.draft) return;
+    const result = this.session(this.draft)?.place(this.tool, xMm, yMm, this.modifiersFor(event));
+    if (!result?.content) { if (result?.handle) { this.active = result.handle; this.changed(); } return; }
+    this.afterPlace(result.content, result.handle);
+  }
+
+  private afterPlace(content: ReturnType<typeof figureContent>, handle: string | null): void {
+    const next = figureProps(content, { keepDraft: true });
+    this.active = handle ?? undefined;
+    this.ghost = [];
+    if ((next.spec as { draft?: unknown }).draft !== undefined) {
+      this.draft = next;
+      this.scratch.set(this.entity!, this.kind!.aspectId, { spec: next.spec, handles: next.handles });
+      this.refreshAnchors();
+      this.changed();
+    } else {
+      this.commitProps(next, "place");
+    }
+    this.options.tool.host.requestRender();
+  }
+
+  /** Tool ghost under the pointer, from stemfig preview(); painted in the gizmo plane only. */
+  private updateGhost(): void {
+    if (!this.tool || !this.hover || !this.box || !this.draft || !this.dirty) return;
+    this.dirty = false;
+    this.options.tool.host.screenToWorld(this.hover.x, this.hover.y, this.world);
+    worldToPageMm(this.box, this.world.x, this.world.y, this.page);
+    this.ghost = this.session(this.draft)?.preview(this.tool, this.page.x, this.page.y, { unsnap: this.modifiers.alt, constrain: this.modifiers.shift, px_per_mm: this.pxPerMm() }) ?? [];
   }
 
   private endCapture(): void {
@@ -413,6 +592,7 @@ export class FigureEditor {
     if (!this.entity || !this.box) { this.svg.style.display = "none"; return; }
     if (!tool.selection.getSelection().includes(this.entity) || world.isEntityReadOnly(this.entity)) { this.exit(); this.svg.style.display = "none"; return; }
     this.applyGesture();
+    this.updateGhost();
     this.svg.style.display = "";
     const rect = tool.surface.hud.getBoundingClientRect();
     const toScreen = (xMm: number, yMm: number): [number, number] => {
@@ -455,6 +635,7 @@ export class FigureEditor {
     this.marks.innerHTML =
       `<path d="${outline}" fill="none" stroke="${ACCENT}" stroke-width="1" stroke-dasharray="4 3"/>` +
       `<path d="${guides}" fill="none" stroke="${ACCENT}" stroke-width="3" stroke-opacity=".45" stroke-linecap="round" stroke-linejoin="round"/>` +
+      itemsToHudSvg(this.ghost, toScreen, this.pxPerMm()) +
       points;
   };
 }

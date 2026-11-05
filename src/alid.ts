@@ -73,8 +73,8 @@ export interface CanvasToolSurfaceProvider { get(): CanvasToolSurface | undefine
 export interface CanvasFrameScheduler { subscribe(paint: () => void): () => void }
 export interface CanvasToolInputRegistry { register(owner: string, handler: { handleKeyDown(event: KeyboardEvent): boolean }): () => void }
 
-/** Contributed icon: a host icon name or 20×20 SVG path data drawn with currentColor. */
-export type WorkbenchIcon = string | { paths: string[]; fill?: boolean };
+/** Contributed icon: a host icon name or SVG path data (size×size box, default 20) drawn with currentColor. */
+export type WorkbenchIcon = string | { paths: (string | { d: string; fill?: boolean })[]; fill?: boolean; size?: number };
 
 export type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 

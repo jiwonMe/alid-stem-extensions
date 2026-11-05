@@ -4,6 +4,8 @@ import type {
   ClipboardService, CommandSpec, EntityCreationRequest, SymbolId, UiControl,
 } from "./alid.ts";
 import { FigureEditor } from "./edit/figure-editor.ts";
+import { mountFigureInspector } from "./edit/inspector.ts";
+import { FigureToolbar } from "./edit/toolbar.ts";
 import { createEngine } from "./engine.ts";
 import { createFigureAspect } from "./figure-aspect.ts";
 import { icons } from "./icons.ts";
@@ -27,7 +29,27 @@ const EDIT = command("edit-figure");
 
 /** The editor of the current activation; aspects consult it to lock the box while editing. */
 let editor: FigureEditor | undefined;
-const aspects = kinds.map((kind) => createFigureAspect(engine, kind, (id) => editor?.isEditingEntity(id) ?? false));
+const aspects = kinds.map((kind) => {
+  const aspect = createFigureAspect(engine, kind, (id) => editor?.isEditingEntity(id) ?? false);
+  return {
+    ...aspect,
+    ui: {
+      ...aspect.ui,
+      panels: [{
+        panelId: `${kind.aspectId}.inspector` as `${string}.${string}`,
+        title: `${kind.label} 속성`,
+        defaultZone: "right" as const,
+        inspectorFor: kind.aspectId,
+        isolation: "container" as const,
+        mount(element: HTMLElement, panel: { onSelectionChange(callback: () => void): () => void; getSelectedIds(): readonly string[] }) {
+          const off = mountFigureInspector(element, () => editor, (id) => panel.getSelectedIds().includes(id));
+          const offSelection = panel.onSelectionChange(() => off.refresh());
+          return () => { offSelection(); off(); };
+        },
+      }],
+    },
+  };
+});
 
 const controls: UiControl[] = [
   ...creationPresets.map((preset): UiControl => ({
@@ -70,10 +92,11 @@ export default {
 
     // ── inner editing: follows the active canvas view; absent without a selection tool ──
     const surfaces = context.services.get<CanvasToolSurfaceProvider>("canvas.active-tool-surface");
-    let bound: CanvasToolSurface | undefined;
+    let bound: CanvasToolSurface | undefined, toolbar: FigureToolbar | undefined;
     const bind = (): FigureEditor | undefined => {
       const tool = surfaces?.get();
       if (tool === bound && editor) return editor;
+      toolbar?.dispose(); toolbar = undefined;
       editor?.dispose(); editor = undefined; bound = tool;
       if (!tool) return undefined;
       editor = new FigureEditor({
@@ -82,6 +105,7 @@ export default {
         externalKeyboard: !!context.services.get("canvas.tool-input"),
         onEditingChanged: () => tool.host.requestRender(),
       });
+      toolbar = new FigureToolbar(editor, tool.surface.hud);
       return editor;
     };
     const enterEdit = () => {
@@ -141,6 +165,7 @@ export default {
         if (!active) return;
         active = false;
         for (const dispose of disposers.splice(0).reverse()) dispose();
+        toolbar?.dispose(); toolbar = undefined;
         editor?.dispose(); editor = undefined; bound = undefined;
       },
     };

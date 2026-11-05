@@ -80,6 +80,7 @@ src/
   alid.ts             사용하는 alid 공개 계약의 구조 타입 (P1)
   edit/               편집 HSM, 손잡이, ScratchOverlay, 단일 Undo (P2)
   icons.ts            도구 아이콘 path 데이터 (P2)
+  stemfig-icons.ts    stemdraw UI 아이콘 변환본 (P3, scripts/convert-stemfig-icons.mjs)
   tools/              place/preview/guidance, HUD 툴바·키 (P3)
   inspector-panel.ts  fields/applyField 동적 속성 패널 (P3)
   kinds.ts            플러그인 등록과 생성 프리셋
@@ -219,3 +220,28 @@ scripts/              build, dev, sync-stemfig, mathjax-glyph-pack
   - **브라우저 playground 수동 확인**(dev 연결): 도구 선반·선택 도구 모음에 새 아이콘 표시, 기하 그림 생성, 그림 안쪽 편집 진입, 점 C 드래그(미리보기 후 확정), Esc로 편집 종료, ⌘Z 한 번으로 원복.
 - 번들: 1,538,960 B (1.47 MiB).
 - 미검증: 실제 마우스·트랙패드 입력(합성 PointerEvent로 확인), 분할 뷰 전환 중 편집, OS 한글 IME 실기, 120fps·0-GC.
+
+### P3 — 작도 도구 (2026-11-05)
+
+- 편집 중 상단에 **작도 도구 모음**(`src/edit/toolbar.ts`)이 나타난다. 도구 목록·이름·단축키는 stemfig 플러그인의 `tools`를 그대로 쓴다.
+  - 기하 17종: 점·선분·직선·원·다각형·내분·교점·수선의 발·평행선·수선·이등분선·외접원·내접원·각 표시·변 표시·그래프·경로.
+  - 역학 16종: 지면·경로·상자·공·용수철·도르래·실·받침대·포물선·힘·각도·치수·보조선·점·라벨.
+  - 아이콘은 stemdraw UI 아이콘(Nucleo UI outline 18px + stemdraw 교과 기호)을 path 데이터로 변환해 쓴다(`scripts/convert-stemfig-icons.mjs` → `src/stemfig-icons.ts`). 채운 점을 표현하기 위해 alid 아이콘 계약을 확장했다(아래).
+  - 편집 중 글자 키로 도구를 고르고(P·L·C·G…), V는 선택·끌기로 돌아간다.
+- 배치: stemfig `place`·`preview`·`guidance`·`finish`·`cancel`.
+  - 다단 작도의 중간 단계(`spec.draft`)는 편집기 로컬 상태와 ScratchOverlay에만 둔다. 정본에는 쓰지 않는다(쓰려 하면 예외).
+  - 완성된 작도만 한 번 기록해 실행 취소 1단위가 된다.
+  - 포인터 아래 미리보기(ghost)는 기즈모 평면에만 그린다(`src/edit/hud-items.ts`).
+  - 안내 문구와 완료·작도 취소 버튼을 도구 모음 아래에 표시한다. 경로·지면처럼 끝이 정해지지 않은 작도는 Enter나 **완료**로 끝낸다.
+  - Esc 순서: 드래그 → 미완성 작도 → 도구 → 편집 종료.
+  - 도구가 켜진 동안 그림 밖 클릭은 편집을 끝내지 않는다.
+- 속성: 그림마다 inspector 섹션(`inspectorFor`)을 기여한다(`src/edit/inspector.ts`). 편집 중이면 고른 손잡이(또는 그림 전체)에 대해 stemfig `fields`를 숫자·텍스트·색·켜기/끄기·선택지로 그리고, `validateField`로 거절 이유를 표시하며, `applyField`를 한 번의 실행 취소로 기록한다. 텍스트는 change에서만 기록해 IME 조합을 끊지 않는다.
+- 삭제: 편집 중 Delete·Backspace는 고른 손잡이와 의존하는 작도를 stemfig `remove`로 함께 지운다. 한 번의 실행 취소.
+- alid 변경(커밋함): 아이콘 계약에 `size`(viewBox, 8–64)와 path별 `{ d, fill }`를 추가하고 최대 path 수를 24로 늘렸다. playground가 이를 그린다.
+- 검증:
+  - 이 저장소: typecheck 통과, vitest 710개(편집기 19개, 도구 모음·속성 4개 포함), 번들 테스트 통과.
+  - 편집기 테스트에서 확인한 것: 두 클릭 선분 배치(중간 단계는 정본 무기록, 완성 시 1회), 기존 점 재사용, Esc 단계, 글자 키 도구, ghost가 기즈모 평면에만 있음, 필드 편집·거절, 의존 작도 삭제, 역학 경로 세 점 + Enter.
+  - alid: 아이콘 테스트 13개 통과, `tsc --noEmit` 통과.
+  - **playground 수동 확인**: 작도 도구 모음과 아이콘 표시, 원 도구 두 클릭(중심 → 둘레, ghost 표시), 점 선택 후 속성의 x 값 변경, Delete로 점과 그 원 삭제, ⌘Z 한 번으로 복원. 합성 PointerEvent로 조작했다.
+- 번들: 1,565,160 B (1.49 MiB).
+- 미검증: 실제 마우스·트랙패드, 분할 뷰, OS 한글 IME로 라벨 입력, 120fps·0-GC.

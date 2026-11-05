@@ -253,4 +253,120 @@ suite("figure inner editing", () => {
     expect(box.pose.t).toBeGreaterThan(0.55);
     expect(f.history.commit).toHaveBeenCalledTimes(1);
   });
+
+  it("places a segment in two clicks: the first stays local, the second commits once without a draft", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    expect(f.editor.setTool("segment")).toBe(true);
+    expect(f.editor.snapshot()!.guidance!.message).toContain("첫 번째");
+    const p = f.screenOf(pageOf(3, 2)), q = f.screenOf(pageOf(2, 3));
+    f.pointer("pointerdown", p.x, p.y); f.pointer("pointerup", p.x, p.y);
+    expect(f.commit).not.toHaveBeenCalled();
+    expect((f.spec(true) as unknown as { draft?: unknown }).draft).toBeTruthy();   // preview carries the step
+    expect((f.spec(false) as unknown as { draft?: unknown }).draft).toBeUndefined(); // canonical never does
+    expect(f.editor.snapshot()!.guidance!.message).toContain("두 번째");
+    f.pointer("pointerdown", q.x, q.y); f.pointer("pointerup", q.x, q.y);
+    expect(f.history.begin).toHaveBeenCalledTimes(1);
+    expect(f.commit).toHaveBeenCalledTimes(1);
+    const spec = f.spec(false) as unknown as { draft?: unknown; objects: { def: unknown[] }[] };
+    expect(spec.draft).toBeUndefined();
+    expect(spec.objects.filter((o) => o.def[0] === "segment")).toHaveLength(4);
+    expect(spec.objects.filter((o) => o.def[0] === "point")).toHaveLength(5);
+  });
+
+  it("a click on an existing point reuses it, and Escape drops an unfinished construction", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    f.editor.setTool("segment");
+    const a = f.screenOf(pageOf(0, 0));
+    f.press(a.x, a.y); f.pointer("pointerup", a.x, a.y); // gizmo press while a tool is armed places
+    expect((f.spec(true) as unknown as { draft?: { from?: string } }).draft?.from).toBe("A");
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect((f.spec(true) as unknown as { draft?: unknown }).draft).toBeUndefined();
+    expect(f.editor.snapshot()!.tool).toBe("segment"); // first Escape keeps the tool
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(f.editor.snapshot()!.tool).toBeUndefined();
+    expect(f.editor.editingEntityId).toBe("fig");
+    expect(f.commit).not.toHaveBeenCalled();
+  });
+
+  it("letter keys pick tools while editing and V returns to selection", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true, cancelable: true }));
+    expect(f.editor.snapshot()!.tool).toBe("circle");
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true, cancelable: true }));
+    expect(f.editor.snapshot()!.tool).toBeUndefined();
+  });
+
+  it("shows a ghost under the pointer in the gizmo plane only", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    f.editor.setTool("circle");
+    const p = f.screenOf(pageOf(2, 1));
+    f.pointer("pointerdown", p.x, p.y); f.pointer("pointerup", p.x, p.y);
+    const q = f.screenOf(pageOf(3, 2));
+    f.pointer("pointermove", q.x, q.y); f.paint();
+    expect(f.hud.querySelector('[data-role="stem-figure-editor"]')!.innerHTML).toContain("<ellipse");
+    expect(JSON.stringify(f.world.exportCanonicalSnapshot())).not.toContain("draft");
+  });
+
+  it("edits a field of the chosen handle through the plugin, one undo step; rejects invalid values", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    const a = f.screenOf(pageOf(0, 0));
+    f.press(a.x, a.y); f.pointer("pointerup", a.x, a.y);
+    const fields = f.editor.snapshot()!.fields;
+    const x = fields.find((field) => field.key === "x");
+    expect(x?.type).toBe("number");
+    expect(f.editor.setField("x", 0.5)).toBeUndefined();
+    expect(f.point(false, "A")[1]).toBeCloseTo(0.5);
+    expect(f.history.commit).toHaveBeenCalledTimes(1);
+    const label = fields.find((field) => field.key === "label");
+    if (label) { f.editor.setField("label", "P"); expect(f.spec(false).objects[0]).toMatchObject({ label: "P" }); }
+    const commits = f.commit.mock.calls.length;
+    expect(f.editor.setField("x", Number.NaN)).toBeTruthy();
+    expect(f.commit.mock.calls.length).toBe(commits);
+  });
+
+  it("Delete removes the chosen point and its dependents in one undo step", () => {
+    const f = fixture();
+    f.editor.enter("fig");
+    const c = f.screenOf(pageOf(1.2, 3));
+    f.press(c.x, c.y); f.pointer("pointerup", c.x, c.y);
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true }));
+    const ids = f.spec(false).objects.map((o: { id: string }) => o.id);
+    expect(ids).not.toContain("C");
+    expect(ids).not.toContain("a"); // B–C
+    expect(ids).not.toContain("b"); // C–A
+    expect(ids).toEqual(expect.arrayContaining(["A", "B", "c", "M"]));
+    expect(f.history.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it("mechanics: draws a track by clicks and finishes with Enter", () => {
+    const f = fixture();
+    const props = { schema: 1, view: { xmin: 0, xmax: 20, ymin: 0, ymax: 10 }, grid: null, axes: null, color: "", handles: null, spec: { objects: [] } };
+    f.world.applyCanonicalTransaction("test:mech", [
+      { id: "mech", aspect: "core.transform", patch: { x: 0, y: 0 } },
+      { id: "mech", aspect: "core.bounds", patch: { width: mmToWorld(100), height: mmToWorld(50) } },
+      { id: "mech", aspect: MECHANICS, patch: props },
+    ]);
+    f.commit.mockClear();
+    f.setSelection(["mech"]);
+    f.editor.enter("mech");
+    expect(f.editor.setTool("track")).toBe(true);
+    const at = (x: number, y: number) => ({ x: x * 5 * WORLD_PX_PER_MM, y: (10 - y) * 5 * WORLD_PX_PER_MM });
+    for (const [x, y] of [[2, 6], [8, 2], [16, 2]] as const) { const p = at(x, y); f.pointer("pointerdown", p.x, p.y); f.pointer("pointerup", p.x, p.y); }
+    expect(f.commit).not.toHaveBeenCalled();
+    expect(f.editor.snapshot()!.guidance!.canFinish).toBe(true);
+    f.surface.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    const spec = (f.world.getCanonical("mech", MECHANICS) as { spec: { objects: { type: string; points: unknown[] }[]; draft?: unknown } }).spec;
+    expect(spec.draft).toBeUndefined();
+    expect(spec.objects).toHaveLength(1);
+    expect(spec.objects[0]!.type).toBe("track");
+    expect(spec.objects[0]!.points).toHaveLength(3);
+    expect(f.history.commit).toHaveBeenCalledTimes(1);
+    expect(f.editor.editingEntityId).toBe("mech"); // Enter finished the track, not the editing
+  });
 });
+

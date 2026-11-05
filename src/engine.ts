@@ -6,8 +6,10 @@
  */
 import { renderSvg, type Axes, type DisplayItem, type Grid, type View } from "@stemfig/display";
 import {
-  applyFigure, compileDocument, hitFigure, indexNodes, listAnchors, parseDocument, Registry, SCHEMA_ID, snapFigure,
-  type Document, type HandleAnchor, type HandlePatch, type SnapHit, type StemfigPlugin,
+  applyFigure, cancelPlacement, compileDocument, finishPlacement, hitFigure, indexNodes, listAnchors, listFields, parseDocument,
+  patchField, placeFigure, previewFigure, Registry, removeHandles, SCHEMA_ID, snapFigure, toolGuidance, validateField,
+  type Document, type FieldPatch, type FigureTool, type HandleAnchor, type HandlePatch, type InspectField, type SnapHit,
+  type StemfigPlugin, type ToolGuidance,
 } from "@stemfig/host";
 
 /** The figure content shared by every kind. Position and size belong to the host canvas. */
@@ -79,19 +81,35 @@ export function createEngine(plugins: readonly StemfigPlugin[]) {
     const frame = { x: 0, y: 0, w: size.width_mm, h: size.height_mm };
     let doc: Document;
     try { doc = figureDocument(plugin, kind, content, frame); } catch { return undefined; }
+    const guard = <T>(fallback: T, run: () => T): T => { try { return run(); } catch { return fallback; } };
+    /** The figure content after an edit, or undefined when stemfig rejected it or nothing changed. */
+    const contentOf = (next: Document): FigureContent | undefined => {
+      if (next === doc) return undefined;
+      const figure = indexNodes(next).figures[0];
+      if (!figure) return undefined;
+      return { ...content, spec: figure.spec, ...(figure.interaction ? { handles: figure.interaction.handles } : {}) };
+    };
     return {
-      anchors: (): HandleAnchor[] => { try { return listAnchors(doc, FIGURE_ID, registry); } catch { return []; } },
-      hit: (x_mm: number, y_mm: number): string | null => { try { return hitFigure(doc, FIGURE_ID, x_mm, y_mm, registry); } catch { return null; } },
-      snap: (x_mm: number, y_mm: number, exclude: string, px_per_mm: number): SnapHit | null => {
-        try { return snapFigure(doc, FIGURE_ID, x_mm, y_mm, registry, exclude, false, px_per_mm); } catch { return null; }
-      },
+      tools: (): readonly FigureTool[] => plugin.tools ?? [],
+      anchors: (): HandleAnchor[] => guard([], () => listAnchors(doc, FIGURE_ID, registry)),
+      hit: (x_mm: number, y_mm: number): string | null => guard(null, () => hitFigure(doc, FIGURE_ID, x_mm, y_mm, registry)),
+      snap: (x_mm: number, y_mm: number, exclude: string | undefined, px_per_mm: number): SnapHit | null =>
+        guard(null, () => snapFigure(doc, FIGURE_ID, x_mm, y_mm, registry, exclude, false, px_per_mm)),
       /** The new spec, or undefined when the plugin rejected or did not change it. */
-      apply: (patch: HandlePatch): unknown => {
-        const next = applyFigure(doc, FIGURE_ID, patch, registry);
-        if (next === doc) return undefined;
-        const figure = indexNodes(next).figures[0];
-        return figure?.spec;
+      apply: (patch: HandlePatch): unknown => contentOf(applyFigure(doc, FIGURE_ID, patch, registry))?.spec,
+      place: (tool: string, x_mm: number, y_mm: number, modifiers: { unsnap: boolean; constrain: boolean; px_per_mm: number }) => {
+        const result = placeFigure(doc, FIGURE_ID, tool, x_mm, y_mm, registry, modifiers.unsnap, modifiers.px_per_mm, modifiers.constrain);
+        return { content: contentOf(result.doc), handle: result.handleId };
       },
+      preview: (tool: string, x_mm: number, y_mm: number, modifiers: { unsnap: boolean; constrain: boolean; px_per_mm: number }) =>
+        previewFigure(doc, FIGURE_ID, tool, x_mm, y_mm, registry, modifiers.unsnap, modifiers.px_per_mm, modifiers.constrain),
+      guidance: (tool: string): ToolGuidance | undefined => toolGuidance(doc, FIGURE_ID, tool, registry),
+      cancel: (): FigureContent | undefined => contentOf(cancelPlacement(doc, FIGURE_ID, registry)),
+      finish: (tool: string) => { const result = finishPlacement(doc, FIGURE_ID, tool, registry); return { content: contentOf(result.doc), handle: result.handleId }; },
+      fields: (focus: string | undefined): readonly InspectField[] => listFields(doc, FIGURE_ID, focus, registry),
+      validateField: (patch: FieldPatch): string | undefined => validateField(doc, FIGURE_ID, patch, registry),
+      applyField: (patch: FieldPatch): FigureContent | undefined => contentOf(patchField(doc, FIGURE_ID, patch, registry)),
+      remove: (ids: readonly string[]): FigureContent | undefined => contentOf(removeHandles(doc, FIGURE_ID, ids, registry)),
     };
   }
 

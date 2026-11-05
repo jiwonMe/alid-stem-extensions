@@ -19,7 +19,7 @@
   "title": "STEM 작도",
   "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "entry": "dist/plugin.js",
-  "sha256": "454a6953e48b31834c9fe389f6982d444e1d35bdfc31b207a1e642994fcb96e6",
+  "sha256": "9523d8b85ad3a939ef5d3713fb61521e50eda24180f745bd2cb63f411a8829a9",
   "aspectIds": [
     "jiwonme.stem.geometry",
     "jiwonme.stem.mechanics"
