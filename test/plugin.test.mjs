@@ -44,7 +44,9 @@ test('activation registers commands only; creation happens on an explicit comman
   const { api, dispose, commands, created } = activate();
   assert.deepEqual([...commands.keys()].sort(), [...manifest.capabilities.commands].sort());
   assert.equal(created.length, 0);
-  for (const control of plugin.ui.controls) {
+  const aspectActions = plugin.aspects.flatMap(aspect => aspect.ui.controls.filter(control => control.kind === 'action'));
+  assert.equal(plugin.ui.controls.some(control => control.placement === 'selection-bar'), false, 'no unscoped selection actions');
+  for (const control of [...plugin.ui.controls, ...aspectActions]) {
     assert.ok(commands.has(control.commandSymbol));
     assert.deepEqual(Object.keys(control.icon).sort(), ['paths'], 'tools draw their own path icon');
     if (control.placement === 'tool-shelf') assert.equal(control.requiresSelection, false);
@@ -67,7 +69,10 @@ test('activation registers commands only; creation happens on an explicit comman
 test('every aspect has pure-JSON defaults and declarative controls bound to its own fields', () => {
   for (const aspect of plugin.aspects) {
     assert.deepEqual(JSON.parse(JSON.stringify(aspect.defaults)), aspect.defaults);
-    for (const control of aspect.ui.controls) assert.ok(Object.hasOwn(aspect.defaults, control.field));
+    for (const control of aspect.ui.controls) {
+      if (control.kind === 'action') assert.equal(control.placement, 'selection-bar', 'aspect actions are scoped to selections of that aspect');
+      else assert.ok(Object.hasOwn(aspect.defaults, control.field));
+    }
     assert.equal(typeof aspect.derive, 'function');
     assert.equal(typeof aspect.renderSvg, 'function');
   }
