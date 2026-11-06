@@ -42,7 +42,6 @@ describe("figure aspect", () => {
     expect(derived.width).toBeCloseTo(width);
     const { svg } = aspect.renderSvg!(props, derived, "e1");
     expect(svg.startsWith(`<g transform="translate(120 -40) rotate(${(0.25 * 180) / Math.PI} ${width / 2} ${height / 2}) scale(${STEMFIG_TO_WORLD})"`)).toBe(true);
-    expect(svg).toContain(`<rect width="${width / STEMFIG_TO_WORLD}" height="${height / STEMFIG_TO_WORLD}" fill="transparent" style="fill:light-dark(transparent, white)"/>`);
     const reference = referenceSvg(figure);
     expect(svg).toContain(reference.slice(reference.indexOf(">") + 1, -"</svg>".length));
   });

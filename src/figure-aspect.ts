@@ -108,10 +108,8 @@ export function createFigureAspect(engine: StemEngine, figure: FigureKind, isEdi
       if (!derived) return { svg: "" };
       const { x, y, width, height, rotation } = derived;
       const font = derived.compiled.fontFamily ? ` font-family="${derived.compiled.fontFamily}"` : "";
-      // stemfig uses fixed ink colours. A light backing in dark mode keeps even
-      // explicitly coloured drawings legible; the default SVG remains transparent.
       return {
-        svg: `<g transform="translate(${x} ${y}) rotate(${(rotation * 180) / Math.PI} ${width / 2} ${height / 2}) scale(${STEMFIG_TO_WORLD})"${font}><rect width="${width / STEMFIG_TO_WORLD}" height="${height / STEMFIG_TO_WORLD}" fill="transparent" style="fill:light-dark(transparent, white)"/>${derived.compiled.body}</g>`,
+        svg: `<g transform="translate(${x} ${y}) rotate(${(rotation * 180) / Math.PI} ${width / 2} ${height / 2}) scale(${STEMFIG_TO_WORLD})"${font}>${derived.compiled.body}</g>`,
       };
     },
     ui: { controls: viewControls },
