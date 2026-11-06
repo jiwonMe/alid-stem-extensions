@@ -30,9 +30,9 @@ describe("figure toolbar", () => {
     expect(bar.element.hasAttribute("data-canvas-ui")).toBe(true);
     const buttons = [...bar.element.querySelectorAll<HTMLButtonElement>("button[data-tool]")];
     expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(["선택·이동", "점", "선분", "이름만"]);
-    expect(buttons[1]!.title).toBe("점 (P)");
+    expect(buttons[1]!.querySelector('[role="tooltip"]')?.textContent).toBe("점 (P)");
     expect(buttons[1]!.querySelector("svg path")).toBeTruthy();
-    expect(buttons[3]!.textContent).toBe("이름만"); // unknown icon falls back to the label
+    expect(buttons[3]!.firstChild?.textContent).toBe("이름만"); // unknown icon falls back to the label
     expect(bar.element.querySelectorAll('[role="separator"]')).toHaveLength(2);
     buttons[2]!.click();
     expect(f.editor.setTool).toHaveBeenCalledWith("segment");

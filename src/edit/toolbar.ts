@@ -15,8 +15,10 @@ const STYLE = `
 .stem-toolbar[hidden]{display:none}
 .stem-toolbar-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:4px;border:1px solid var(--alid-border-subtle,#e4e4e7);
   border-radius:8px;background:var(--alid-bg-surface,#fff);box-shadow:0 4px 16px #0000000d,0 1px 3px #0000000a;pointer-events:auto}
-.stem-toolbar button{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:28px;height:28px;padding:0 5px;border:0;border-radius:5px;
+.stem-toolbar button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:28px;height:28px;padding:0 5px;border:0;border-radius:5px;
   background:transparent;color:inherit;font:inherit;cursor:pointer}
+.stem-toolbar .stem-tooltip{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:2;pointer-events:none;white-space:nowrap;padding:5px 8px;border:1px solid var(--alid-border-subtle,#e4e4e7);border-radius:5px;background:var(--alid-bg-surface,#fff);color:var(--alid-text,#18181b);box-shadow:0 4px 16px #0000001a;font:12px/1.4 var(--alid-font,system-ui,sans-serif)}
+.stem-toolbar button:hover .stem-tooltip,.stem-toolbar button:focus-visible .stem-tooltip{display:block}
 .stem-toolbar button:hover{background:var(--alid-bg-muted,#f4f4f5)}
 .stem-toolbar button[aria-pressed="true"]{background:var(--alid-accent-soft,#eeeeff);color:var(--alid-accent,#625bf6)}
 .stem-toolbar button:focus-visible{outline:2px solid var(--alid-accent,#625bf6);outline-offset:1px}
@@ -115,9 +117,10 @@ export class FigureToolbar {
     button.type = "button";
     button.dataset.tool = tool.id;
     const name = tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label;
-    button.setAttribute("aria-label", tool.label); button.title = name;
+    button.setAttribute("aria-label", tool.label);
     const icon = iconSvg(doc, stemfigIcons[tool.icon] ?? (tool.id ? undefined : CURSOR));
-    if (icon) button.append(icon); else button.textContent = tool.label;
+    if (icon) button.append(icon); else button.append(doc.createTextNode(tool.label));
+    const tooltip = doc.createElement("span"); tooltip.className = "stem-tooltip"; tooltip.setAttribute("role", "tooltip"); tooltip.textContent = name; button.append(tooltip);
     button.addEventListener("click", (event) => { event.preventDefault(); this.editor.setTool(tool.id || undefined); });
     return button;
   }
