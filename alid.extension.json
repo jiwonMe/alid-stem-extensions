@@ -1,7 +1,7 @@
 {
   "apiVersion": 2,
   "id": "jiwonme.stem",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "engine": "^0.1.0",
   "dependencies": {},
   "optionalDependencies": {
@@ -19,7 +19,7 @@
   "title": "STEM 작도",
   "summary": "끌어서 편집하는 기하 작도·함수 그래프·역학 도식을 캔버스에 추가합니다.",
   "entry": "dist/plugin.js",
-  "sha256": "087aa4a9b77fed62c1f4bb30a0ca5f27a0ad21edaca8a543230f0500ca6cda0f",
+  "sha256": "b420147af75cdf51b9a83c32257b05083ad5db9c2e896e07de241928b20f01c6",
   "aspectIds": [
     "jiwonme.stem.geometry",
     "jiwonme.stem.mechanics"
