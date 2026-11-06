@@ -21,6 +21,20 @@ const base: EditorSnapshot = {
 };
 
 describe("figure toolbar", () => {
+  it("follows app theme changes even inside a light canvas and stops observing on disposal", async () => {
+    document.documentElement.dataset.alidTheme = "dark";
+    const host = document.createElement("div"), f = fakeEditor(base);
+    host.dataset.alidTheme = "light";
+    const bar = new FigureToolbar(f.editor, host);
+    expect(bar.element.dataset.alidTheme).toBe("dark");
+    document.documentElement.dataset.alidTheme = "light";
+    await vi.waitFor(() => expect(bar.element.dataset.alidTheme).toBe("light"));
+    bar.dispose();
+    document.documentElement.dataset.alidTheme = "dark";
+    await Promise.resolve();
+    expect(bar.element.dataset.alidTheme).toBe("light");
+    delete document.documentElement.dataset.alidTheme;
+  });
   it("is hidden when not editing and lists the plugin's tools with path icons", () => {
     const host = document.createElement("div"), f = fakeEditor(undefined);
     const bar = new FigureToolbar(f.editor, host);

@@ -54,6 +54,7 @@ export class FigureToolbar {
   private readonly cancel: HTMLButtonElement;
   private renderedTools = "";
   private readonly off: () => void;
+  private readonly themeObserver: MutationObserver;
 
   constructor(private readonly editor: FigureEditor, host: HTMLElement) {
     const doc = host.ownerDocument;
@@ -61,6 +62,15 @@ export class FigureToolbar {
     this.element.className = "stem-toolbar";
     this.element.dataset.canvasUi = "";
     this.element.hidden = true;
+    // The canvas may use its own light theme; controls follow the app theme.
+    const syncTheme = () => {
+      const theme = doc.documentElement.dataset.alidTheme;
+      if (theme === "light" || theme === "dark") this.element.dataset.alidTheme = theme;
+      else delete this.element.dataset.alidTheme;
+    };
+    syncTheme();
+    this.themeObserver = new MutationObserver(syncTheme);
+    this.themeObserver.observe(doc.documentElement, { attributes: true, attributeFilter: ["data-alid-theme"] });
     const style = doc.createElement("style"); style.textContent = STYLE;
     this.tools = doc.createElement("div"); this.tools.className = "stem-toolbar-row"; this.tools.setAttribute("role", "toolbar"); this.tools.setAttribute("aria-label", "작도 도구");
     this.step = doc.createElement("div"); this.step.className = "stem-step"; this.step.setAttribute("role", "status"); this.step.hidden = true;
@@ -125,7 +135,7 @@ export class FigureToolbar {
     return button;
   }
 
-  dispose(): void { this.off(); this.element.remove(); }
+  dispose(): void { this.off(); this.themeObserver.disconnect(); this.element.remove(); }
 }
 
 /** Selection arrow on the same 20 grid as alid's own `pointer` icon. */
